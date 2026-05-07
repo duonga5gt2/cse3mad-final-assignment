@@ -1,4 +1,4 @@
-import { Feather, MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons";
 import { Link } from "expo-router";
 import { useState } from "react";
 import {
@@ -12,17 +12,42 @@ import {
 } from "react-native";
 
 import { GuestRoute } from "@/components/GuestRoute";
+import { useAuth } from "@/contexts/AuthContext";
 
 const BRAND = "#0057BD";
 const CARD_TEXT = "#242C51";
 const MUTED = "#6C759E";
 const SUBTLE = "#515981";
 const INPUT_BG = "#D6DBFF";
+const ERROR = "#B42318";
+const SUCCESS = "#027A48";
 
-export default function LoginScreen() {
+export default function ForgetPasswordScreen() {
+  const { resetPassword } = useAuth();
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  async function onResetPress() {
+    if (!email.trim()) {
+      setErrorMessage("Please enter your email address.");
+      setSuccessMessage("");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setErrorMessage("");
+      setSuccessMessage("");
+      await resetPassword(email.trim());
+      setSuccessMessage("Reset link sent. Please check your email.");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to send reset link.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <GuestRoute>
@@ -33,12 +58,13 @@ export default function LoginScreen() {
 
         <ScrollView
           contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.phoneFrame}>
-            <Text style={styles.heroTitle}>Log in</Text>
+            <Text style={styles.heroTitle}>Forgot Password</Text>
             <Text style={styles.heroSubtitle}>
-              Enter your credentials to continue
+              Enter your email and we will send you a reset password link.
             </Text>
 
             <Text style={styles.sectionLabel}>Email address</Text>
@@ -47,8 +73,6 @@ export default function LoginScreen() {
               <TextInput
                 value={email}
                 onChangeText={setEmail}
-                placeholder="name@example.com"
-                placeholderTextColor={MUTED}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
@@ -56,56 +80,33 @@ export default function LoginScreen() {
               />
             </View>
 
-            <Text style={styles.sectionLabel}>Password</Text>
-            <View style={styles.inputShell}>
-              <MaterialIcons name="lock" size={20} color={MUTED} />
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Enter password"
-                placeholderTextColor={MUTED}
-                autoCapitalize="none"
-                autoCorrect={false}
-                secureTextEntry={!showPassword}
-                style={styles.textInput}
-              />
-              <Pressable
-                accessibilityLabel={showPassword ? "Hide password" : "Show password"}
-                accessibilityRole="button"
-                hitSlop={8}
-                onPress={() => setShowPassword((current) => !current)}
-              >
-                <Feather
-                  name={showPassword ? "eye-off" : "eye"}
-                  size={20}
-                  color={MUTED}
-                />
-              </Pressable>
-            </View>
+            {!!errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+            {!!successMessage && <Text style={styles.successText}>{successMessage}</Text>}
 
-            <View style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>Access account</Text>
+            <Pressable
+              accessibilityLabel="Send password reset link"
+              accessibilityRole="button"
+              disabled={isSubmitting}
+              onPress={onResetPress}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                (pressed || isSubmitting) && styles.primaryButtonPressed,
+              ]}
+            >
+              <Text style={styles.primaryButtonText}>
+                {isSubmitting ? "Sending..." : "Send reset link"}
+              </Text>
               <MaterialIcons name="arrow-forward" size={22} color="#FFFFFF" />
-            </View>
+            </Pressable>
 
-            <Link href="/signup" asChild>
-              <Pressable style={styles.secondaryLinkButton}>
-                <Text style={styles.secondaryLinkText}>Create account</Text>
-              </Pressable>
-            </Link>
-
-            <View style={styles.supportBlock}>
-              <Link href="/forget-password" asChild>
-                <Pressable style={styles.forgotPasswordButton}>
-                  <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+            <View style={styles.backToLoginRow}>
+              <Text style={styles.backCopy}>Remember your password? </Text>
+              <Link href="/" asChild>
+                <Pressable hitSlop={8}>
+                  <Text style={styles.backLink}>Back to login</Text>
                 </Pressable>
               </Link>
             </View>
-
-            <Text style={styles.footerCopy}>
-              By continuing, you agree to our Terms of Use and acknowledge our
-              Privacy Policy.
-            </Text>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -163,7 +164,7 @@ const styles = StyleSheet.create({
     color: SUBTLE,
     fontSize: 15,
     lineHeight: 23,
-    marginBottom: 36,
+    marginBottom: 28,
   },
   sectionLabel: {
     color: SUBTLE,
@@ -179,16 +180,28 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 12,
   },
   textInput: {
-    color: MUTED,
+    color: CARD_TEXT,
     fontSize: 16,
     flex: 1,
     paddingVertical: 0,
   },
+  errorText: {
+    color: ERROR,
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  successText: {
+    color: SUCCESS,
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
   primaryButton: {
-    marginTop: 8,
+    marginTop: 10,
     height: 56,
     borderRadius: 12,
     backgroundColor: BRAND,
@@ -202,38 +215,30 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 4,
   },
+  primaryButtonPressed: {
+    opacity: 0.9,
+  },
   primaryButtonText: {
     color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "700",
   },
-  secondaryLinkButton: {
-    marginTop: 12,
-    alignItems: "center",
+  backToLoginRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "center",
-    paddingVertical: 12,
+    alignItems: "center",
+    marginTop: 28,
   },
-  secondaryLinkText: {
+  backCopy: {
+    color: SUBTLE,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  backLink: {
     color: BRAND,
     fontSize: 15,
     fontWeight: "700",
-  },
-  supportBlock: {
-    marginTop: 24,
-    marginBottom: 30,
-  },
-  forgotPasswordButton: {
-    marginTop: 12,
-    alignSelf: "flex-start",
-  },
-  forgotPasswordText: {
-    color: BRAND,
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  footerCopy: {
-    color: "#A3ABD7",
-    fontSize: 13,
     lineHeight: 22,
   },
 });

@@ -1,7 +1,10 @@
-import { MaterialIcons } from "@expo/vector-icons";
-import { Link } from "expo-router";
+import { Feather, MaterialIcons } from "@expo/vector-icons";
+import { Link, router } from "expo-router";
 import { useState } from "react";
 import {
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
     Pressable,
     SafeAreaView,
     ScrollView,
@@ -24,6 +27,8 @@ export default function SignupScreen() {
     const [lastName, setLastName] = useState("");
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
+    const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
 
     return (
         <GuestRoute>
@@ -32,16 +37,19 @@ export default function SignupScreen() {
                     <Text style={styles.headerTitle}>Sydney Exchange</Text>
                 </View>
 
-                <ScrollView
-                    contentContainerStyle={styles.scrollContent}
-                    keyboardShouldPersistTaps="handled"
-                    showsVerticalScrollIndicator={false}
+                <KeyboardAvoidingView
+                    style={{ flex: 1 }}
+                    behavior={Platform.OS === "ios" ? "padding" : undefined}
+                    keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
                 >
-                    <View style={styles.phoneFrame}>
+                    <ScrollView
+                        contentContainerStyle={styles.scrollContent}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
+                    >
+                        <View style={styles.phoneFrame}>
                         <Text style={styles.heroTitle}>Create Account</Text>
-                        <Text style={styles.heroSubtitle}>
-                            Join our community of curators today.
-                        </Text>
+                       
 
                         <View style={styles.nameRow}>
                             <View style={styles.nameField}>
@@ -50,8 +58,6 @@ export default function SignupScreen() {
                                     <TextInput
                                         value={firstName}
                                         onChangeText={setFirstName}
-                                        placeholder="Alex"
-                                        placeholderTextColor={MUTED}
                                         autoCapitalize="words"
                                         autoCorrect={false}
                                         style={styles.textInput}
@@ -64,8 +70,6 @@ export default function SignupScreen() {
                                     <TextInput
                                         value={lastName}
                                         onChangeText={setLastName}
-                                        placeholder="Rivers"
-                                        placeholderTextColor={MUTED}
                                         autoCapitalize="words"
                                         autoCorrect={false}
                                         style={styles.textInput}
@@ -80,8 +84,6 @@ export default function SignupScreen() {
                             <TextInput
                                 value={email}
                                 onChangeText={setEmail}
-                                placeholder="alex@example.com"
-                                placeholderTextColor={MUTED}
                                 autoCapitalize="none"
                                 autoCorrect={false}
                                 keyboardType="email-address"
@@ -90,40 +92,109 @@ export default function SignupScreen() {
                         </View>
 
                         <Text style={styles.sectionLabel}>Phone Number</Text>
-                        <View style={[styles.inputShell, styles.inputShellLast]}>
+                        <View style={styles.inputShell}>
                             <MaterialIcons name="phone" size={20} color={MUTED} />
                             <TextInput
                                 value={phone}
                                 onChangeText={setPhone}
-                                placeholder="+1 (555) 000-0000"
-                                placeholderTextColor={MUTED}
                                 keyboardType="phone-pad"
                                 style={styles.textInput}
                             />
                         </View>
 
+                        <Text style={styles.sectionLabel}>Password</Text>
+                        <View style={[styles.inputShell, styles.inputShellLast]}>
+                            <MaterialIcons name="lock" size={20} color={MUTED} />
+                            <TextInput
+                                value={password}
+                                onChangeText={setPassword}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                secureTextEntry={!showPassword}
+                                style={styles.textInput}
+                            />
+                            <Pressable
+                                accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                                accessibilityRole="button"
+                                hitSlop={8}
+                                onPress={() => setShowPassword((current) => !current)}
+                            >
+                                <Feather
+                                    name={showPassword ? "eye-off" : "eye"}
+                                    size={20}
+                                    color={MUTED}
+                                />
+                            </Pressable>
+                        </View>
+
                         <Pressable
                             accessibilityRole="button"
-                            accessibilityLabel="Create account"
-                            style={({ pressed }) => [
-                                styles.primaryButton,
-                                pressed && styles.primaryButtonPressed,
-                            ]}
+                            accessibilityLabel="Continue to profile image"
+                            style={styles.primaryButton}
+                            onPress={() => {
+                                const missing =
+                                    !firstName.trim() ||
+                                    !lastName.trim() ||
+                                    !email.trim() ||
+                                    !phone.trim() ||
+                                    !password.trim();
+
+                                if (missing) {
+                                    Alert.alert(
+                                        "Missing information",
+                                        "Please fill in all fields to continue."
+                                    );
+                                    return;
+                                }
+
+                                const emailTrimmed = email.trim().toLowerCase();
+                                // Basic email format check (UI validation only).
+                                const emailIsValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+                                    emailTrimmed
+                                );
+
+                                if (!emailIsValid) {
+                                    Alert.alert(
+                                        "Invalid email format",
+                                        "Please enter a valid email address (example: name@gmail.com)."
+                                    );
+                                    return;
+                                }
+
+                                const passwordTrimmed = password.trim();
+                                const passwordIsValid =
+                                    passwordTrimmed.length >= 8 &&
+                                    /[A-Z]/.test(passwordTrimmed) &&
+                                    /[a-z]/.test(passwordTrimmed) &&
+                                    /\d/.test(passwordTrimmed) &&
+                                    /[^A-Za-z0-9]/.test(passwordTrimmed);
+
+                                if (!passwordIsValid) {
+                                    Alert.alert(
+                                        "Invalid password",
+                                        "Use at least 8 characters, including 1 uppercase, 1 lowercase, 1 number, and 1 special character."
+                                    );
+                                    return;
+                                }
+
+                                router.push("/profile-image");
+                            }}
                         >
-                            <Text style={styles.primaryButtonText}>Create Account</Text>
+                            <Text style={styles.primaryButtonText}>Next</Text>
                             <MaterialIcons name="arrow-forward" size={22} color="#FFFFFF" />
                         </Pressable>
 
-                        <View style={styles.loginPrompt}>
-                            <Text style={styles.loginPromptText}>Already have an account? </Text>
-                            <Link href="/" asChild>
-                                <Pressable hitSlop={8}>
-                                    <Text style={styles.loginLink}>Login</Text>
-                                </Pressable>
-                            </Link>
+                            <View style={styles.loginPrompt}>
+                                <Text style={styles.loginPromptText}>Already have an account? </Text>
+                                <Link href="/" asChild>
+                                    <Pressable hitSlop={8}>
+                                        <Text style={styles.loginLink}>Login</Text>
+                                    </Pressable>
+                                </Link>
+                            </View>
                         </View>
-                    </View>
-                </ScrollView>
+                    </ScrollView>
+                </KeyboardAvoidingView>
             </SafeAreaView>
         </GuestRoute>
     );
@@ -218,6 +289,7 @@ const styles = StyleSheet.create({
     primaryButton: {
         marginTop: 8,
         height: 56,
+        width: "100%",
         borderRadius: 12,
         backgroundColor: BRAND,
         flexDirection: "row",
@@ -229,9 +301,6 @@ const styles = StyleSheet.create({
         shadowRadius: 12,
         shadowOffset: { width: 0, height: 8 },
         elevation: 4,
-    },
-    primaryButtonPressed: {
-        opacity: 0.92,
     },
     primaryButtonText: {
         color: "#FFFFFF",
