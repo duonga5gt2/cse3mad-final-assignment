@@ -2,6 +2,7 @@ import {
   User,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
@@ -22,6 +23,7 @@ type AuthContextType = {
   signup: (email: string, password: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  sendVerificationEmail: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
 };
 
@@ -37,7 +39,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isEmailVerified, setIsEmailVerified] = useState<boolean>(false);
 
   async function signup(email: string, password: string) {
-    await createUserWithEmailAndPassword(auth, email, password);
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    await sendEmailVerification(userCredential.user);
   }
 
   async function login(email: string, password: string) {
@@ -46,6 +49,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   async function logout() {
     await signOut(auth);
+  }
+
+  async function sendVerificationEmail() {
+    const currentUser = auth.currentUser;
+
+    if (!currentUser) {
+      throw new Error("You must be logged in to send a verification email.");
+    }
+
+    await sendEmailVerification(currentUser);
   }
 
   async function resetPassword(email: string) {
@@ -80,6 +93,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signup,
     login,
     logout,
+    sendVerificationEmail,
     resetPassword,
   };
 

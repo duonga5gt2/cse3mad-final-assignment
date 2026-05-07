@@ -8,10 +8,6 @@
  */
 
 import { setGlobalOptions } from "firebase-functions";
-import { onRequest } from "firebase-functions/https";
-import * as logger from "firebase-functions/logger";
-import { defineSecret } from "firebase-functions/params";
-import { neon } from "@neondatabase/serverless";
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript
@@ -31,53 +27,28 @@ setGlobalOptions({
   region: "australia-southeast1",
 });
 
-const DATABASE_URL = defineSecret("DATABASE_URL");
+import express, { Request, Response } from "express";
+import { onRequest } from "firebase-functions/v2/https";
 
-export const helloWorld = onRequest((request, response) => {
-  logger.info("Hello logs!", { structuredData: true });
-  response.send("Hello from Firebase!");
+const app = express();
+
+app.use(express.json());
+
+app.get("/", (req: Request, res: Response) => {
+  res.send("Hello from Firebase Functions + Express + TypeScript");
 });
 
-export const testDb = onRequest({ secrets: [DATABASE_URL] }, async (request, response) => {
-  if (request.method !== "GET") {
-    response.status(405).json({
-      ok: false,
-      message: "Method not allowed. Use GET.",
-    });
-    return;
-  }
-
-  try {
-    const connectionString = DATABASE_URL.value();
-
-    if (!connectionString) {
-      response.status(500).json({
-        ok: false,
-        message: "DATABASE_URL is not configured.",
-      });
-      return;
-    }
-
-    const sql = neon(connectionString);
-    const result = await sql`
-      SELECT
-        1 AS connected,
-        current_database() AS database_name,
-        NOW() AS server_time
-    `;
-
-    response.status(200).json({
-      ok: true,
-      message: "Database connection successful.",
-      data: result[0],
-    });
-  } catch (error) {
-    logger.error("Database connection test failed", error);
-
-    response.status(500).json({
-      ok: false,
-      message: "Database connection failed.",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-  }
+app.get("/hello", (req: Request, res: Response) => {
+  res.json({
+    message: "Hello",
+  });
 });
+
+app.post("/test", (req: Request, res: Response) => {
+  res.json({
+    message: "POST works",
+    body: req.body,
+  });
+});
+
+export const api = onRequest(app);
