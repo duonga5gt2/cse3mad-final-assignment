@@ -5,8 +5,6 @@ import { useState } from "react";
 import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 
-import { GuestRoute } from "@/components/GuestRoute";
-
 const BRAND = "#0057BD";
 const CARD_TEXT = "#242C51";
 const SUBTLE = "#6C759E";
@@ -52,8 +50,7 @@ export default function ProfileImageScreen() {
   }
 
   return (
-    <GuestRoute>
-      <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea}>
         <ScrollView
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps="handled"
@@ -126,8 +123,7 @@ export default function ProfileImageScreen() {
             <Text style={styles.footerCopy}>PRIVATE & SECURE ENCRYPTION</Text>
           </View>
         </ScrollView>
-      </SafeAreaView>
-    </GuestRoute>
+    </SafeAreaView>
   );
 }
 

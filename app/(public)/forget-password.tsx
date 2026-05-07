@@ -11,7 +11,6 @@ import {
   View,
 } from "react-native";
 
-import { GuestRoute } from "@/components/GuestRoute";
 import { useAuth } from "@/contexts/AuthContext";
 
 const BRAND = "#0057BD";
@@ -50,8 +49,7 @@ export default function ForgetPasswordScreen() {
   }
 
   return (
-    <GuestRoute>
-      <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea}>
         <View style={styles.topBar}>
           <Text style={styles.headerTitle}>Sydney Exchange</Text>
         </View>
@@ -109,8 +107,7 @@ export default function ForgetPasswordScreen() {
             </View>
           </View>
         </ScrollView>
-      </SafeAreaView>
-    </GuestRoute>
+    </SafeAreaView>
   );
 }
 

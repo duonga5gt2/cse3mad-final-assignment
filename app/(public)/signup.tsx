@@ -14,8 +14,6 @@ import {
     View,
 } from "react-native";
 
-import { GuestRoute } from "@/components/GuestRoute";
-
 const BRAND = "#0057BD";
 const CARD_TEXT = "#242C51";
 const MUTED = "#6C759E";
@@ -31,8 +29,7 @@ export default function SignupScreen() {
     const [showPassword, setShowPassword] = useState(false);
 
     return (
-        <GuestRoute>
-            <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea}>
                 <View style={styles.topBar}>
                     <Text style={styles.headerTitle}>Sydney Exchange</Text>
                 </View>
@@ -195,8 +192,7 @@ export default function SignupScreen() {
                         </View>
                     </ScrollView>
                 </KeyboardAvoidingView>
-            </SafeAreaView>
-        </GuestRoute>
+        </SafeAreaView>
     );
 }
 

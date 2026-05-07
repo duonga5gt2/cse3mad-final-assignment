@@ -11,111 +11,147 @@ import {
   View,
 } from "react-native";
 
-import { GuestRoute } from "@/components/GuestRoute";
+import { useAuth } from "@/contexts/AuthContext";
 
 const BRAND = "#0057BD";
 const CARD_TEXT = "#242C51";
 const MUTED = "#6C759E";
 const SUBTLE = "#515981";
 const INPUT_BG = "#D6DBFF";
+const ERROR = "#B42318";
 
 export default function LoginScreen() {
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  async function onLoginPress() {
+    const emailTrimmed = email.trim().toLowerCase();
+
+    if (!emailTrimmed || !password) {
+      setErrorMessage("Please enter your email and password.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setErrorMessage("");
+      await login(emailTrimmed, password);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to log in. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
-    <GuestRoute>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.topBar}>
-          <Text style={styles.headerTitle}>Sydney Exchange</Text>
-        </View>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.topBar}>
+        <Text style={styles.headerTitle}>Sydney Exchange</Text>
+      </View>
 
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.phoneFrame}>
-            <Text style={styles.heroTitle}>Log in</Text>
-            <Text style={styles.heroSubtitle}>
-              Enter your credentials to continue
-            </Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.phoneFrame}>
+          <Text style={styles.heroTitle}>Log in</Text>
+          <Text style={styles.heroSubtitle}>
+            Enter your credentials to continue
+          </Text>
 
-            <Text style={styles.sectionLabel}>Email address</Text>
-            <View style={styles.inputShell}>
-              <MaterialIcons name="email" size={20} color={MUTED} />
-              <TextInput
-                value={email}
-                onChangeText={setEmail}
-                placeholder="name@example.com"
-                placeholderTextColor={MUTED}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-                style={styles.textInput}
-              />
-            </View>
-
-            <Text style={styles.sectionLabel}>Password</Text>
-            <View style={styles.inputShell}>
-              <MaterialIcons name="lock" size={20} color={MUTED} />
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Enter password"
-                placeholderTextColor={MUTED}
-                autoCapitalize="none"
-                autoCorrect={false}
-                secureTextEntry={!showPassword}
-                style={styles.textInput}
-              />
-              <Pressable
-                accessibilityLabel={showPassword ? "Hide password" : "Show password"}
-                accessibilityRole="button"
-                hitSlop={8}
-                onPress={() => setShowPassword((current) => !current)}
-              >
-                <Feather
-                  name={showPassword ? "eye-off" : "eye"}
-                  size={20}
-                  color={MUTED}
-                />
-              </Pressable>
-            </View>
-
-            <View style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>Access account</Text>
-              <MaterialIcons name="arrow-forward" size={22} color="#FFFFFF" />
-            </View>
-
-            <Link href="/signup" asChild>
-              <Pressable style={styles.secondaryLinkButton}>
-                <Text style={styles.secondaryLinkText}>Create account</Text>
-              </Pressable>
-            </Link>
-
-            <Link href="/(main)/(tabs)/home" asChild>
-              <Pressable style={styles.devLinkButton}>
-                <Text style={styles.devLinkText}>Dev: Open Main App</Text>
-              </Pressable>
-            </Link>
-
-            <View style={styles.supportBlock}>
-              <Link href="/forget-password" asChild>
-                <Pressable style={styles.forgotPasswordButton}>
-                  <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-                </Pressable>
-              </Link>
-            </View>
-
-            <Text style={styles.footerCopy}>
-              By continuing, you agree to our Terms of Use and acknowledge our
-              Privacy Policy.
-            </Text>
+          <Text style={styles.sectionLabel}>Email address</Text>
+          <View style={styles.inputShell}>
+            <MaterialIcons name="email" size={20} color={MUTED} />
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder="name@example.com"
+              placeholderTextColor={MUTED}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              style={styles.textInput}
+            />
           </View>
-        </ScrollView>
-      </SafeAreaView>
-    </GuestRoute>
+
+          <Text style={styles.sectionLabel}>Password</Text>
+          <View style={styles.inputShell}>
+            <MaterialIcons name="lock" size={20} color={MUTED} />
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Enter password"
+              placeholderTextColor={MUTED}
+              autoCapitalize="none"
+              autoCorrect={false}
+              secureTextEntry={!showPassword}
+              style={styles.textInput}
+            />
+            <Pressable
+              accessibilityLabel={
+                showPassword ? "Hide password" : "Show password"
+              }
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => setShowPassword((current) => !current)}
+            >
+              <Feather
+                name={showPassword ? "eye-off" : "eye"}
+                size={20}
+                color={MUTED}
+              />
+            </Pressable>
+          </View>
+
+          {!!errorMessage && (
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          )}
+
+          <Pressable
+            accessibilityLabel="Access account"
+            accessibilityRole="button"
+            disabled={isSubmitting}
+            onPress={onLoginPress}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              (pressed || isSubmitting) && styles.primaryButtonPressed,
+            ]}
+          >
+            <Text style={styles.primaryButtonText}>
+              {isSubmitting ? "Signing in..." : "Access account"}
+            </Text>
+            <MaterialIcons name="arrow-forward" size={22} color="#FFFFFF" />
+          </Pressable>
+
+          <Link href="/signup" asChild>
+            <Pressable style={styles.secondaryLinkButton}>
+              <Text style={styles.secondaryLinkText}>Create account</Text>
+            </Pressable>
+          </Link>
+
+          <View style={styles.supportBlock}>
+            <Link href="/forget-password" asChild>
+              <Pressable style={styles.forgotPasswordButton}>
+                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+              </Pressable>
+            </Link>
+          </View>
+
+          <Text style={styles.footerCopy}>
+            By continuing, you agree to our Terms of Use and acknowledge our
+            Privacy Policy.
+          </Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -193,6 +229,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 0,
   },
+  errorText: {
+    color: ERROR,
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: -10,
+    marginBottom: 14,
+  },
   primaryButton: {
     marginTop: 8,
     height: 56,
@@ -207,6 +250,9 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 8 },
     elevation: 4,
+  },
+  primaryButtonPressed: {
+    opacity: 0.86,
   },
   primaryButtonText: {
     color: "#FFFFFF",

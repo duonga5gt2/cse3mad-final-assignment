@@ -19,5 +19,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Redirect href="/(public)" />;
   }
 
+  console.log("Protected!");
   return <>{children}</>;
 }
