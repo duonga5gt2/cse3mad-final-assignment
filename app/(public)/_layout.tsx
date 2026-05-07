@@ -1,7 +1,15 @@
 // app/(public)/_layout.tsx
+import { LoadingCard } from "@/components/LoadingCard";
+import { useAuth } from "@/contexts/AuthContext";
 import { Stack } from "expo-router";
 
 export default function PublicLayout() {
+  const { user, loading } = useAuth();
+
+  if (loading) return <LoadingCard />;
+
+  // if (user) return <Redirect href="/(tabs)" />;
+
   return (
     <Stack>
       <Stack.Screen name="index" options={{ headerShown: false }} />
