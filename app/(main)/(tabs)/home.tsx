@@ -1,18 +1,14 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { ProtectedRoute } from '@/components/ProtectedRoute';
-
 export default function AuthenticatedHomeScreen() {
   return (
-    <ProtectedRoute>
-      <View style={styles.container}>
-        <Text style={styles.title}>Authenticated Home</Text>
-        <Text style={styles.copy}>
-          This tab is now reserved for signed-in content. We can replace it with the real dashboard
-          screen next.
-        </Text>
-      </View>
-    </ProtectedRoute>
+    <View style={styles.container}>
+      <Text style={styles.title}>Home</Text>
+      <Text style={styles.copy}>
+        This tab is now reserved for signed-in content. We can replace it with the real dashboard
+        screen next.
+      </Text>
+    </View>
   );
 }
 

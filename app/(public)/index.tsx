@@ -94,6 +94,12 @@ export default function LoginScreen() {
               </Pressable>
             </Link>
 
+            <Link href="/(main)/(tabs)/home" asChild>
+              <Pressable style={styles.devLinkButton}>
+                <Text style={styles.devLinkText}>Dev: Open Main App</Text>
+              </Pressable>
+            </Link>
+
             <View style={styles.supportBlock}>
               <Link href="/forget-password" asChild>
                 <Pressable style={styles.forgotPasswordButton}>
@@ -217,6 +223,17 @@ const styles = StyleSheet.create({
     color: BRAND,
     fontSize: 15,
     fontWeight: "700",
+  },
+  devLinkButton: {
+    marginTop: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+  },
+  devLinkText: {
+    color: "#6C759E",
+    fontSize: 13,
+    fontWeight: "600",
   },
   supportBlock: {
     marginTop: 24,

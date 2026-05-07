@@ -1,22 +1,13 @@
 import { Tabs } from "expo-router";
 import React from "react";
 
-import { LoadingCard } from "@/components/LoadingCard";
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
-import { useAuth } from "@/contexts/AuthContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const { user, loading } = useAuth();
-
-  if (loading) return <LoadingCard />;
-
-  // if (!user) {
-  //   return <Redirect href="/(public)" />;
-  // }
   return (
     <Tabs
       screenOptions={{
@@ -26,7 +17,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="home"
         options={{
           title: "Home",
           tabBarIcon: ({ color }) => (
@@ -35,11 +26,29 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="publish"
         options={{
-          title: "Explore",
+          title: "Publish",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="paperplane.fill" color={color} />
+            <IconSymbol size={28} name="plus.circle.fill" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="chat"
+        options={{
+          title: "Chat",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="message.fill" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="person.fill" color={color} />
           ),
         }}
       />
