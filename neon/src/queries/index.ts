@@ -3,6 +3,8 @@ export * from "./createNewProduct";
 export * from "./createNewUser";
 export * from "./deleteProductsAndItsRecord";
 export * from "./deleteUser";
+export * from "./getAllPendingProd";
+export * from "./getAllSellingProd";
 export * from "./getChats";
 export * from "./getCurentUser";
 export * from "./getProdDetail";
