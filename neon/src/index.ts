@@ -40,6 +40,8 @@ import {
   getProdDetail,
   getTrendingProducts,
   getTrendingProductsNext10,
+  updateProductDetail,
+  updateUserProfile,
 } from "./queries";
 
 // INITIALIZE, MIDDLEWARE AND HEALTH CHECKPOINT
@@ -289,5 +291,140 @@ app.get("/me", authMiddleware, async (req: AuthenticatedRequest, res: Response) 
     });
   }
 });
+
+app.patch(
+  "/me",
+  authMiddleware,
+  emailVerifiedMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const uid = req.user?.uid;
+
+      if (!uid) {
+        res.status(401).json({
+          ok: false,
+          error: "Missing authenticated user.",
+        });
+        return;
+      }
+
+      const connectionString = DATABASE_URL.value();
+
+      if (!connectionString) {
+        res.status(500).json({
+          ok: false,
+          error: "DATABASE_URL is not configured.",
+        });
+        return;
+      }
+
+      const sql = neon(connectionString);
+      const users = await updateUserProfile(sql, {
+        uid,
+        firstName: req.body.firstName,
+        lastName: req.body.lastName,
+        email: req.body.email,
+        avatarUrl: req.body.avatarUrl,
+        phoneNumber: req.body.phoneNumber,
+      });
+
+      if (users.length === 0) {
+        res.status(404).json({
+          ok: false,
+          error: "User not found.",
+        });
+        return;
+      }
+
+      res.status(200).json({
+        ok: true,
+        data: users[0],
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to update user profile.",
+      });
+    }
+  },
+);
+
+app.patch(
+  "/products/:prodId",
+  authMiddleware,
+  emailVerifiedMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const uid = req.user?.uid;
+      const prodId = Number(req.params.prodId);
+
+      if (!uid) {
+        res.status(401).json({
+          ok: false,
+          error: "Missing authenticated user.",
+        });
+        return;
+      }
+
+      if (!Number.isInteger(prodId)) {
+        res.status(400).json({
+          ok: false,
+          error: "prodId must be a valid integer.",
+        });
+        return;
+      }
+
+      const connectionString = DATABASE_URL.value();
+
+      if (!connectionString) {
+        res.status(500).json({
+          ok: false,
+          error: "DATABASE_URL is not configured.",
+        });
+        return;
+      }
+
+      const sql = neon(connectionString);
+      const products = await updateProductDetail(sql, {
+        prodId,
+        sellerUid: uid,
+        description: req.body.description,
+        title: req.body.title,
+        price: req.body.price,
+        pickUpLocationText: req.body.pickUpLocationText,
+        longitude: req.body.longitude,
+        latitude: req.body.latitude,
+        productPhotoUrl1: req.body.productPhotoUrl1,
+        productPhotoUrl2: req.body.productPhotoUrl2,
+        productPhotoUrl3: req.body.productPhotoUrl3,
+        prodVector: req.body.prodVector,
+      });
+
+      if (products.length === 0) {
+        res.status(404).json({
+          ok: false,
+          error: "Product not found or you do not have permission to edit it.",
+        });
+        return;
+      }
+
+      res.status(200).json({
+        ok: true,
+        data: products[0],
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to update product detail.",
+      });
+    }
+  },
+);
 
 export const api = onRequest({ secrets: [DATABASE_URL] }, app);
