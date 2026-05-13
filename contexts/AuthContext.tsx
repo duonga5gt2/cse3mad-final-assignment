@@ -20,7 +20,7 @@ type AuthContextType = {
   user: User | null;
   loading: boolean;
   isEmailVerified: boolean;
-  signup: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string) => Promise<string>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
@@ -39,8 +39,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isEmailVerified, setIsEmailVerified] = useState<boolean>(false);
 
   async function signup(email: string, password: string) {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    await sendEmailVerification(userCredential.user);
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
+      email,
+      password,
+    );
+    return userCredential.user.uid;
   }
 
   async function login(email: string, password: string) {

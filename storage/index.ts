@@ -15,7 +15,10 @@ async function uriToBlob(uri: string) {
   return response.blob();
 }
 
-export async function uploadAvatarImage(uid: string, imageUri: string) {
+export async function uploadAvatarImage(uid: string, imageUri: string | null) {
+  if (!imageUri) {
+    return null;
+  }
   const imageBlob = await uriToBlob(imageUri);
   const imageRef = ref(storage, `${AVATAR_FOLDER(uid)}profile.jpg`);
 

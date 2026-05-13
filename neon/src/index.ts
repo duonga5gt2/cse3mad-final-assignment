@@ -36,6 +36,7 @@ import { defineSecret } from "firebase-functions/params";
 import { onRequest } from "firebase-functions/v2/https";
 
 import {
+  createNewUser,
   getCurentUser,
   getProdDetail,
   getTrendingProducts,
@@ -107,39 +108,35 @@ app.get("/health-check", (req: Request, res: Response) => {
 
 // Get Trending Products
 
-app.get(
-  "/trending",
-  authMiddleware,
-  async (req: Request, res: Response) => {
-    try {
-      const connectionString = DATABASE_URL.value();
+app.get("/trending", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const connectionString = DATABASE_URL.value();
 
-      if (!connectionString) {
-        res.status(500).json({
-          ok: false,
-          error: "DATABASE_URL is not configured.",
-        });
-        return;
-      }
-
-      const sql = neon(connectionString);
-      const products = await getTrendingProducts(sql);
-
-      res.status(200).json({
-        ok: true,
-        data: products,
-      });
-    } catch (error) {
+    if (!connectionString) {
       res.status(500).json({
         ok: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to fetch trending products.",
+        error: "DATABASE_URL is not configured.",
       });
+      return;
     }
-  },
-);
+
+    const sql = neon(connectionString);
+    const products = await getTrendingProducts(sql);
+
+    res.status(200).json({
+      ok: true,
+      data: products,
+    });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unable to fetch trending products.",
+    });
+  }
+});
 
 app.get(
   "/trending-next",
@@ -244,58 +241,122 @@ app.get(
   },
 );
 
-app.get("/me", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const uid = req.user?.uid;
+app.get(
+  "/me",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const uid = req.user?.uid;
 
-    if (!uid) {
-      res.status(401).json({
-        ok: false,
-        error: "Missing authenticated user.",
+      if (!uid) {
+        res.status(401).json({
+          ok: false,
+          error: "Missing authenticated user.",
+        });
+        return;
+      }
+
+      const connectionString = DATABASE_URL.value();
+
+      if (!connectionString) {
+        res.status(500).json({
+          ok: false,
+          error: "DATABASE_URL is not configured.",
+        });
+        return;
+      }
+
+      const sql = neon(connectionString);
+      const users = await getCurentUser(sql, uid);
+
+      if (users.length === 0) {
+        res.status(404).json({
+          ok: false,
+          error: "User not found.",
+        });
+        return;
+      }
+
+      res.status(200).json({
+        ok: true,
+        data: users[0],
       });
-      return;
-    }
-
-    const connectionString = DATABASE_URL.value();
-
-    if (!connectionString) {
+    } catch (error) {
       res.status(500).json({
         ok: false,
-        error: "DATABASE_URL is not configured.",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to fetch current user.",
       });
-      return;
     }
+  },
+);
 
-    const sql = neon(connectionString);
-    const users = await getCurentUser(sql, uid);
+app.post(
+  "/users",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const uid = req.user?.uid;
 
-    if (users.length === 0) {
-      res.status(404).json({
+      if (!uid) {
+        res.status(401).json({
+          ok: false,
+          error: "Missing authenticated user.",
+        });
+        return;
+      }
+
+      const { firstName, lastName, email, avatarUrl, phoneNumber } = req.body;
+
+      if (!firstName || !lastName || !email || !phoneNumber) {
+        res.status(400).json({
+          ok: false,
+          error: "firstName, lastName, phoneNumber, and email are required.",
+        });
+        return;
+      }
+
+      const connectionString = DATABASE_URL.value();
+
+      if (!connectionString) {
+        res.status(500).json({
+          ok: false,
+          error: "DATABASE_URL is not configured.",
+        });
+        return;
+      }
+
+      const sql = neon(connectionString);
+      const users = await createNewUser(sql, {
+        uid,
+        firstName,
+        lastName,
+        email,
+        avatarUrl,
+        phoneNumber,
+      });
+
+      res.status(201).json({
+        ok: true,
+        data: users[0],
+      });
+    } catch (error) {
+      res.status(500).json({
         ok: false,
-        error: "User not found.",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to register new user.",
       });
-      return;
     }
-
-    res.status(200).json({
-      ok: true,
-      data: users[0],
-    });
-  } catch (error) {
-    res.status(500).json({
-      ok: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Unable to fetch current user.",
-    });
-  }
-});
+  },
+);
 
 app.patch(
   "/me",
   authMiddleware,
-  emailVerifiedMiddleware,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const uid = req.user?.uid;
