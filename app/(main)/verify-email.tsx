@@ -23,8 +23,15 @@ const BG = "#F7F5FF";
 const CALLOUT_BG = "#E8ECFF";
 
 export default function VerifyEmailScreen() {
-  const { user, loading, isEmailVerified, sendVerificationEmail } = useAuth();
+  const {
+    user,
+    loading,
+    isEmailVerified,
+    sendVerificationEmail,
+    refreshCurrentUser,
+  } = useAuth();
   const [isResending, setIsResending] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
 
   const email = user?.email?.trim() ?? "";
 
@@ -63,6 +70,31 @@ export default function VerifyEmailScreen() {
     }
   }, [sendVerificationEmail]);
 
+  const onCheckVerificationPress = useCallback(async () => {
+    try {
+      setIsChecking(true);
+      const refreshedUser = await refreshCurrentUser();
+      await refreshedUser?.getIdToken(true);
+
+      if (refreshedUser?.emailVerified) {
+        router.replace("/(main)/(tabs)/home");
+        return;
+      }
+
+      Alert.alert(
+        "Not verified yet",
+        "We still can't see the verification. Open the email link, then check again.",
+      );
+    } catch (e) {
+      Alert.alert(
+        "Could not check",
+        e instanceof Error ? e.message : "Please try again in a moment.",
+      );
+    } finally {
+      setIsChecking(false);
+    }
+  }, [refreshCurrentUser]);
+
   if (loading || !user || isEmailVerified) {
     return (
       <SafeAreaView edges={["top"]} style={styles.safeArea}>
@@ -92,7 +124,7 @@ export default function VerifyEmailScreen() {
           <Text style={styles.heading}>Check your inbox</Text>
 
           <Text style={styles.body}>
-            We've sent a verification link to{" "}
+            We&apos;ve sent a verification link to{" "}
             <Text style={styles.emailEmphasis}>{email || "your email"}</Text>. Open the link in
             that message to verify your account.
           </Text>
@@ -107,7 +139,27 @@ export default function VerifyEmailScreen() {
             <Text style={styles.primaryButtonText}>Open email app</Text>
           </Pressable>
 
-          <Text style={styles.resendPrompt}>Didn't receive the email?</Text>
+          <Pressable
+            accessibilityLabel="Check email verification"
+            accessibilityRole="button"
+            disabled={isChecking}
+            onPress={() => void onCheckVerificationPress()}
+            style={({ pressed }) => [
+              styles.secondaryButton,
+              (pressed || isChecking) && styles.secondaryButtonPressed,
+            ]}
+          >
+            {isChecking ? (
+              <ActivityIndicator color={BRAND} />
+            ) : (
+              <>
+                <MaterialIcons color={BRAND} name="verified" size={20} />
+                <Text style={styles.secondaryButtonText}>I&apos;ve verified</Text>
+              </>
+            )}
+          </Pressable>
+
+          <Text style={styles.resendPrompt}>Didn&apos;t receive the email?</Text>
 
           <Pressable
             accessibilityLabel="Resend verification email"
@@ -141,7 +193,7 @@ export default function VerifyEmailScreen() {
           <View style={styles.hintBox}>
             <MaterialIcons color={BRAND} name="inbox" size={18} />
             <Text style={styles.hintText}>
-              If you don't see it, check spam or promotions.
+              If you don&apos;t see it, check spam or promotions.
             </Text>
           </View>
         </View>

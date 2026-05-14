@@ -36,6 +36,7 @@ import { defineSecret } from "firebase-functions/params";
 import { onRequest } from "firebase-functions/v2/https";
 
 import {
+  createNewProduct,
   createNewUser,
   getCurentUser,
   getProdDetail,
@@ -49,6 +50,7 @@ import {
 initializeApp();
 
 const DATABASE_URL = defineSecret("DATABASE_URL");
+const AI_KEY = defineSecret("AI_KEY");
 
 const app = express();
 
@@ -57,6 +59,60 @@ app.use(express.json());
 type AuthenticatedRequest = Request & {
   user?: DecodedIdToken;
 };
+
+type EmbeddingsResponse = {
+  data?: Array<{
+    embedding?: number[];
+  }>;
+  error?: {
+    message?: string;
+  };
+};
+
+function buildProductEmbeddingText(input: {
+  title: string;
+  description: string;
+  pickUpLocationText: string;
+}) {
+  return [
+    `Title: ${input.title}`,
+    `Description: ${input.description}`,
+    `Pickup location: ${input.pickUpLocationText}`,
+  ].join("\n");
+}
+
+function vectorToPgVector(vector: number[]) {
+  return `[${vector.join(",")}]`;
+}
+
+async function embedTextToVector(text: string, apiKey: string) {
+  const response = await fetch("https://api.openai.com/v1/embeddings", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "text-embedding-3-small",
+      input: text,
+      encoding_format: "float",
+    }),
+  });
+
+  const data = (await response.json()) as EmbeddingsResponse;
+
+  if (!response.ok) {
+    throw new Error(data.error?.message ?? "Unable to embed product text.");
+  }
+
+  const embedding = data.data?.[0]?.embedding;
+
+  if (!embedding || embedding.length === 0) {
+    throw new Error("Embedding response did not include a vector.");
+  }
+
+  return vectorToPgVector(embedding);
+}
 
 async function authMiddleware(
   req: AuthenticatedRequest,
@@ -354,6 +410,116 @@ app.post(
   },
 );
 
+app.post(
+  "/products",
+  authMiddleware,
+  emailVerifiedMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const uid = req.user?.uid;
+
+      if (!uid) {
+        res.status(401).json({
+          ok: false,
+          error: "Missing authenticated user.",
+        });
+        return;
+      }
+
+      const {
+        title,
+        description,
+        price,
+        pickUpLocationText,
+        longitude,
+        latitude,
+        productPhotoUrl1,
+        productPhotoUrl2,
+        productPhotoUrl3,
+      } = req.body;
+
+      const numericPrice = Number(price);
+      const numericLongitude = Number(longitude);
+      const numericLatitude = Number(latitude);
+
+      if (
+        typeof title !== "string" ||
+        typeof description !== "string" ||
+        typeof pickUpLocationText !== "string" ||
+        !title.trim() ||
+        !description.trim() ||
+        !pickUpLocationText.trim() ||
+        !Number.isFinite(numericPrice) ||
+        !Number.isFinite(numericLongitude) ||
+        !Number.isFinite(numericLatitude)
+      ) {
+        res.status(400).json({
+          ok: false,
+          error:
+            "title, description, price, pickUpLocationText, longitude, and latitude are required.",
+        });
+        return;
+      }
+
+      const connectionString = DATABASE_URL.value();
+      const aiKey = AI_KEY.value();
+
+      if (!connectionString) {
+        res.status(500).json({
+          ok: false,
+          error: "DATABASE_URL is not configured.",
+        });
+        return;
+      }
+
+      if (!aiKey) {
+        res.status(500).json({
+          ok: false,
+          error: "AI_KEY is not configured.",
+        });
+        return;
+      }
+
+      const prodVector = await embedTextToVector(
+        buildProductEmbeddingText({
+          title: title.trim(),
+          description: description.trim(),
+          pickUpLocationText: pickUpLocationText.trim(),
+        }),
+        aiKey,
+      );
+
+      const sql = neon(connectionString);
+      const products = await createNewProduct(sql, {
+        sellerUid: uid,
+        title: title.trim(),
+        description: description.trim(),
+        price: numericPrice,
+        pickUpLocationText: pickUpLocationText.trim(),
+        longitude: numericLongitude,
+        latitude: numericLatitude,
+        productPhotoUrl1,
+        productPhotoUrl2,
+        productPhotoUrl3,
+        prodVector,
+      });
+
+      res.status(201).json({
+        ok: true,
+        data: products[0],
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to create new product.",
+      });
+    }
+  },
+);
+
 app.patch(
   "/me",
   authMiddleware,
@@ -488,4 +654,4 @@ app.patch(
   },
 );
 
-export const api = onRequest({ secrets: [DATABASE_URL] }, app);
+export const api = onRequest({ secrets: [DATABASE_URL, AI_KEY] }, app);

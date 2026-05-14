@@ -35,17 +35,20 @@ export async function createNewProduct(
         prod_vector
       )
       VALUES (
-        $1,
-        $2,
-        $3,
-        $4,
-        $5,
-        ST_SetSRID(ST_MakePoint($6, $7), 4283),
+        $1::text,
+        $2::text,
+        $3::text,
+        $4::numeric,
+        $5::text,
+        ST_SetSRID(
+          ST_MakePoint($6::double precision, $7::double precision),
+          4283
+        ),
         NOW(),
         false,
-        $8,
-        $9,
-        $10,
+        $8::text,
+        $9::text,
+        $10::text,
         $11::vector
       )
       RETURNING *;

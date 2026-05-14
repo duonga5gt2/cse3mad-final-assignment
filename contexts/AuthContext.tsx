@@ -25,6 +25,7 @@ type AuthContextType = {
   logout: () => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  refreshCurrentUser: () => Promise<User | null>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -69,16 +70,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
     await sendPasswordResetEmail(auth, email);
   }
 
+  async function refreshCurrentUser() {
+    const currentUser = auth.currentUser;
+
+    if (!currentUser) {
+      setUser(null);
+      setIsEmailVerified(false);
+      return null;
+    }
+
+    await currentUser.reload();
+    const refreshedUser = auth.currentUser;
+
+    setUser(refreshedUser);
+    setIsEmailVerified(refreshedUser?.emailVerified ?? false);
+
+    return refreshedUser;
+  }
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       console.log(firebaseUser);
 
       if (firebaseUser) {
-        await firebaseUser.reload();
-        const refreshedUser = auth.currentUser;
-
-        setUser(refreshedUser);
-        setIsEmailVerified(refreshedUser?.emailVerified ?? false);
+        await refreshCurrentUser();
       } else {
         setUser(null);
         setIsEmailVerified(false);
@@ -99,6 +114,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     logout,
     sendVerificationEmail,
     resetPassword,
+    refreshCurrentUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

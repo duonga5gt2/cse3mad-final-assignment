@@ -23,27 +23,31 @@ export async function updateProductDetail(
     `
       UPDATE products
       SET
-        description = COALESCE($1, description),
-        title = COALESCE($2, title),
-        price = COALESCE($3, price),
-        pick_up_location_text = COALESCE($4, pick_up_location_text),
+        description = COALESCE($1::text, description),
+        title = COALESCE($2::text, title),
+        price = COALESCE($3::numeric, price),
+        pick_up_location_text = COALESCE($4::text, pick_up_location_text),
         pick_up_location_gis =
           CASE
-            WHEN $5 IS NOT NULL AND $6 IS NOT NULL
-            THEN ST_SetSRID(ST_MakePoint($5, $6), 4283)
+            WHEN $5::double precision IS NOT NULL
+              AND $6::double precision IS NOT NULL
+            THEN ST_SetSRID(
+              ST_MakePoint($5::double precision, $6::double precision),
+              4283
+            )
             ELSE pick_up_location_gis
           END,
-        product_photo_url_1 = COALESCE($7, product_photo_url_1),
-        product_photo_url_2 = COALESCE($8, product_photo_url_2),
-        product_photo_url_3 = COALESCE($9, product_photo_url_3),
+        product_photo_url_1 = COALESCE($7::text, product_photo_url_1),
+        product_photo_url_2 = COALESCE($8::text, product_photo_url_2),
+        product_photo_url_3 = COALESCE($9::text, product_photo_url_3),
         prod_vector =
           CASE
-            WHEN $10 IS NOT NULL
+            WHEN $10::text IS NOT NULL
             THEN $10::vector
             ELSE prod_vector
           END
-      WHERE prod_id = $11
-        AND seller_uid = $12
+      WHERE prod_id = $11::integer
+        AND seller_uid = $12::text
       RETURNING *;
     `,
     [
