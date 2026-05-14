@@ -13,7 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ProductCard } from "@/components/ui/product-card";
 import { auth } from "@/firebase";
-import { GET } from "@/lib/fetchFormat";
+import { GET, POST } from "@/lib/fetchFormat";
 
 type Product = {
   id: string;
@@ -227,6 +227,26 @@ export default function AuthenticatedHomeScreen() {
     };
   }, [searchTerm]);
 
+  const openProduct = useCallback(async (productId: string) => {
+    if (!productId.startsWith("mock-")) {
+      try {
+        const token = await auth.currentUser?.getIdToken();
+
+        if (token) {
+          await POST(
+            `${API_BASE_URL}/products/${encodeURIComponent(productId)}/trending`,
+            token,
+            { clicks: 1 },
+          );
+        }
+      } catch {
+        // Opening the product should not be blocked by analytics-style tracking.
+      }
+    }
+
+    router.push(`/(main)/product-detail/${encodeURIComponent(productId)}`);
+  }, []);
+
   const showSearchDropdown = searchTerm.trim().length >= 2;
 
   return (
@@ -275,9 +295,7 @@ export default function AuthenticatedHomeScreen() {
                   imageUri={product.imageUri}
                   key={product.id}
                   layout="row"
-                  onPress={() =>
-                    router.push(`/(main)/product-detail/${encodeURIComponent(product.id)}`)
-                  }
+                  onPress={() => void openProduct(product.id)}
                   price={product.price}
                   sellerFirstName={product.sellerFirstName}
                   sellerLastName={product.sellerLastName}
@@ -305,9 +323,7 @@ export default function AuthenticatedHomeScreen() {
               avatarUrl={product.avatarUrl}
               imageUri={product.imageUri}
               key={product.id}
-              onPress={() =>
-                router.push(`/(main)/product-detail/${encodeURIComponent(product.id)}`)
-              }
+              onPress={() => void openProduct(product.id)}
               price={product.price}
               sellerFirstName={product.sellerFirstName}
               sellerLastName={product.sellerLastName}

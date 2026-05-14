@@ -45,6 +45,7 @@ import {
   searchForItem,
   updateProductDetail,
   updateUserProfile,
+  updateTrend,
 } from "./queries";
 
 // INITIALIZE, MIDDLEWARE AND HEALTH CHECKPOINT
@@ -463,6 +464,63 @@ app.post(
           error instanceof Error
             ? error.message
             : "Unable to register new user.",
+      });
+    }
+  },
+);
+
+app.post(
+  "/products/:prodId/trending",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const prodId = Number(req.params.prodId);
+      const clicks =
+        req.body.clicks === undefined ? 1 : Number(req.body.clicks);
+
+      if (!Number.isInteger(prodId)) {
+        res.status(400).json({
+          ok: false,
+          error: "prodId must be a valid integer.",
+        });
+        return;
+      }
+
+      if (!Number.isInteger(clicks) || clicks < 1) {
+        res.status(400).json({
+          ok: false,
+          error: "clicks must be a positive integer.",
+        });
+        return;
+      }
+
+      const connectionString = DATABASE_URL.value();
+
+      if (!connectionString) {
+        res.status(500).json({
+          ok: false,
+          error: "DATABASE_URL is not configured.",
+        });
+        return;
+      }
+
+      const sql = neon(connectionString);
+      const trendingRows = await updateTrend(sql, {
+        prodId,
+        clicks,
+      });
+
+      res.status(200).json({
+        ok: true,
+        data: trendingRows[0],
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to update product trend.",
       });
     }
   },
