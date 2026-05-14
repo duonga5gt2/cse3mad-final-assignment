@@ -70,9 +70,12 @@ function mapProduct(row: ProductApiRow): Product {
 
 export default function AuthenticatedHomeScreen() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [visibleProducts, setVisibleProducts] = useState<Product[]>([]);
-  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [isLoadingTrending, setIsLoadingTrending] = useState(false);
+  const [isSearchingProducts, setIsSearchingProducts] = useState(false);
   const [productError, setProductError] = useState("");
+  const [searchError, setSearchError] = useState("");
   const [focusRefreshKey, setFocusRefreshKey] = useState(0);
 
   useFocusEffect(
@@ -83,11 +86,10 @@ export default function AuthenticatedHomeScreen() {
 
   useEffect(() => {
     let isActive = true;
-    const query = searchTerm.trim();
 
-    const timeoutId = setTimeout(async () => {
+    async function loadTrendingProducts() {
       try {
-        setIsLoadingProducts(true);
+        setIsLoadingTrending(true);
         setProductError("");
 
         const token = await auth.currentUser?.getIdToken();
@@ -96,18 +98,17 @@ export default function AuthenticatedHomeScreen() {
           throw new Error("Missing auth token.");
         }
 
-        const url =
-          query.length >= 2
-            ? `${API_BASE_URL}/search-products?q=${encodeURIComponent(query)}`
-            : `${API_BASE_URL}/trending`;
-        const response = await GET<ProductApiRow[]>(url, token);
+        const response = await GET<ProductApiRow[]>(
+          `${API_BASE_URL}/trending`,
+          token,
+        );
 
         if (!response.ok) {
           throw new Error(response.error);
         }
 
         if (isActive) {
-          setVisibleProducts(response.data.map(mapProduct));
+          setTrendingProducts(response.data.map(mapProduct));
         }
       } catch (error) {
         if (isActive) {
@@ -116,20 +117,79 @@ export default function AuthenticatedHomeScreen() {
               ? error.message
               : "Unable to load products.";
           setProductError(message);
-          setVisibleProducts([]);
+          setTrendingProducts([]);
         }
       } finally {
         if (isActive) {
-          setIsLoadingProducts(false);
+          setIsLoadingTrending(false);
         }
       }
-    }, query.length >= 2 ? 350 : 0);
+    }
+
+    void loadTrendingProducts();
+
+    return () => {
+      isActive = false;
+    };
+  }, [focusRefreshKey]);
+
+  useEffect(() => {
+    let isActive = true;
+    const query = searchTerm.trim();
+
+    if (query.length < 2) {
+      setSearchResults([]);
+      setSearchError("");
+      setIsSearchingProducts(false);
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        setIsSearchingProducts(true);
+        setSearchError("");
+
+        const token = await auth.currentUser?.getIdToken();
+
+        if (!token) {
+          throw new Error("Missing auth token.");
+        }
+
+        const response = await GET<ProductApiRow[]>(
+          `${API_BASE_URL}/search-products?q=${encodeURIComponent(query)}`,
+          token,
+        );
+
+        if (!response.ok) {
+          throw new Error(response.error);
+        }
+
+        if (isActive) {
+          setSearchResults(response.data.map(mapProduct));
+        }
+      } catch (error) {
+        if (isActive) {
+          setSearchError(
+            error instanceof Error
+              ? error.message
+              : "Unable to search products.",
+          );
+          setSearchResults([]);
+        }
+      } finally {
+        if (isActive) {
+          setIsSearchingProducts(false);
+        }
+      }
+    }, 350);
 
     return () => {
       isActive = false;
       clearTimeout(timeoutId);
     };
-  }, [focusRefreshKey, searchTerm]);
+  }, [searchTerm]);
+
+  const showSearchDropdown = searchTerm.trim().length >= 2;
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
@@ -138,28 +198,60 @@ export default function AuthenticatedHomeScreen() {
           Discover exceptional <Text style={styles.heroAccent}>products</Text>
         </Text>
 
-        <View style={styles.searchShell}>
-          <MaterialIcons color="#8D95C8" name="search" size={20} />
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            onChangeText={setSearchTerm}
-            placeholder="Search curated listings..."
-            placeholderTextColor="#8D95C8"
-            style={styles.searchInput}
-            value={searchTerm}
-          />
+        <View style={styles.searchArea}>
+          <View style={styles.searchShell}>
+            <MaterialIcons color="#8D95C8" name="search" size={20} />
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              onChangeText={setSearchTerm}
+              placeholder="Search curated listings..."
+              placeholderTextColor="#8D95C8"
+              style={styles.searchInput}
+              value={searchTerm}
+            />
+          </View>
+
+          {showSearchDropdown ? (
+            <View style={styles.searchDropdown}>
+              {isSearchingProducts ? (
+                <View style={styles.searchDropdownStatus}>
+                  <ActivityIndicator color="#0057BD" />
+                  <Text style={styles.searchDropdownStatusText}>Searching...</Text>
+                </View>
+              ) : null}
+
+              {searchError ? (
+                <Text style={styles.searchDropdownMessage}>{searchError}</Text>
+              ) : null}
+
+              {!isSearchingProducts &&
+              !searchError &&
+              searchResults.length === 0 ? (
+                <Text style={styles.searchDropdownMessage}>No matches found.</Text>
+              ) : null}
+
+              {searchResults.map((product) => (
+                <ProductCard
+                  avatarUrl={product.avatarUrl}
+                  imageUri={product.imageUri}
+                  key={product.id}
+                  layout="row"
+                  price={product.price}
+                  sellerFirstName={product.sellerFirstName}
+                  sellerLastName={product.sellerLastName}
+                  title={product.title}
+                />
+              ))}
+            </View>
+          ) : null}
         </View>
 
-        <Text style={styles.sectionEyebrow}>
-          {searchTerm.trim().length >= 2 ? "SEARCH" : "TRENDING"}
-        </Text>
-        <Text style={styles.sectionTitle}>
-          {searchTerm.trim().length >= 2 ? "Search Results" : "Trending Products"}
-        </Text>
+        <Text style={styles.sectionEyebrow}>TRENDING</Text>
+        <Text style={styles.sectionTitle}>Trending Products</Text>
 
         <View style={styles.listingsContainer}>
-          {isLoadingProducts ? (
+          {isLoadingTrending ? (
             <ActivityIndicator color="#0057BD" size="large" />
           ) : null}
 
@@ -167,7 +259,7 @@ export default function AuthenticatedHomeScreen() {
             <Text style={styles.emptyState}>{productError}</Text>
           ) : null}
 
-          {visibleProducts.map((product) => (
+          {trendingProducts.map((product) => (
             <ProductCard
               avatarUrl={product.avatarUrl}
               imageUri={product.imageUri}
@@ -180,11 +272,9 @@ export default function AuthenticatedHomeScreen() {
           ))}
         </View>
 
-        {!isLoadingProducts && !productError && visibleProducts.length === 0 ? (
+        {!isLoadingTrending && !productError && trendingProducts.length === 0 ? (
           <Text style={styles.emptyState}>
-            {searchTerm.trim().length >= 2
-              ? "No products found. Try a different keyword."
-              : "No trending products yet."}
+            No trending products yet.
           </Text>
         ) : null}
       </ScrollView>
@@ -214,6 +304,10 @@ const styles = StyleSheet.create({
   heroAccent: {
     color: "#5E8EF5",
   },
+  searchArea: {
+    position: "relative",
+    zIndex: 2,
+  },
   searchShell: {
     marginTop: 8,
     minHeight: 52,
@@ -229,6 +323,42 @@ const styles = StyleSheet.create({
     color: "#4A5383",
     fontSize: 15,
     paddingVertical: 0,
+  },
+  searchDropdown: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#D0D7FF",
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+    marginTop: 8,
+    maxHeight: 280,
+    overflow: "hidden",
+    paddingVertical: 10,
+    shadowColor: "#242C51",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 5,
+  },
+  searchDropdownStatus: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 44,
+    paddingHorizontal: 12,
+  },
+  searchDropdownStatusText: {
+    color: "#6C759E",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  searchDropdownMessage: {
+    color: "#6C759E",
+    fontSize: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    textAlign: "center",
   },
   sectionEyebrow: {
     marginTop: 6,

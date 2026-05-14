@@ -43,6 +43,9 @@ export function ProductCard({
           <Text numberOfLines={1} style={styles.rowTitle}>
             {title}
           </Text>
+          <Text numberOfLines={1} style={styles.rowPrice}>
+            {price}
+          </Text>
           <View style={styles.rowSeller}>
             <Image contentFit="cover" source={{ uri: avatarUrl }} style={styles.rowAvatar} />
             <Text numberOfLines={1} style={styles.rowSellerName}>
@@ -154,6 +157,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: "#242C51",
+  },
+  rowPrice: {
+    color: "#0057BD",
+    fontSize: 14,
+    fontWeight: "800",
   },
   rowSeller: {
     flexDirection: "row",
