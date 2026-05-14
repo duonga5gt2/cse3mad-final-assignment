@@ -227,9 +227,11 @@ export default function AuthenticatedHomeScreen() {
     };
   }, [searchTerm]);
 
-  const openProduct = useCallback(async (productId: string) => {
+  const openProduct = useCallback((productId: string) => {
+    router.push(`/(main)/product-detail/${encodeURIComponent(productId)}`);
+
     if (!productId.startsWith("mock-")) {
-      try {
+      void (async () => {
         const token = await auth.currentUser?.getIdToken();
 
         if (token) {
@@ -239,12 +241,10 @@ export default function AuthenticatedHomeScreen() {
             { clicks: 1 },
           );
         }
-      } catch {
+      })().catch(() => {
         // Opening the product should not be blocked by analytics-style tracking.
-      }
+      });
     }
-
-    router.push(`/(main)/product-detail/${encodeURIComponent(productId)}`);
   }, []);
 
   const showSearchDropdown = searchTerm.trim().length >= 2;
