@@ -15,6 +15,8 @@ export type ProductDetailContentProps = {
   sellerLastName: string;
   sellerMemberSinceLabel?: string;
   pickupLocationLabel: string;
+  chatButtonLabel?: string;
+  isChatWithSellerDisabled?: boolean;
   onChatWithSellerPress?: () => void;
 };
 
@@ -35,9 +37,11 @@ export function ProductDetailContent({
   sellerLastName,
   sellerMemberSinceLabel,
   pickupLocationLabel,
+  chatButtonLabel = "Chat with seller",
+  isChatWithSellerDisabled = false,
   onChatWithSellerPress,
 }: ProductDetailContentProps) {
-  const canChat = Boolean(onChatWithSellerPress);
+  const canChat = Boolean(onChatWithSellerPress) && !isChatWithSellerDisabled;
 
   return (
     <View style={styles.root}>
@@ -101,7 +105,7 @@ export function ProductDetailContent({
       >
         <MaterialIcons color={canChat ? "#FFFFFF" : "#9AA3C9"} name="sms" size={22} />
         <Text style={[styles.chatButtonText, !canChat && styles.chatButtonTextDisabled]}>
-          Chat with seller
+          {chatButtonLabel}
         </Text>
       </Pressable>
     </View>

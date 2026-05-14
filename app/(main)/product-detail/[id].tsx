@@ -19,7 +19,7 @@ import {
   type ProductDetailContentProps,
 } from "@/components/ui/product-detail-content";
 import { auth } from "@/firebase";
-import { GET } from "@/lib/fetchFormat";
+import { GET, POST } from "@/lib/fetchFormat";
 
 const BRAND = "#0057BD";
 const BG = "#F7F5FF";
@@ -171,6 +171,7 @@ export default function ProductDetailScreen() {
   const [bundle, setBundle] = useState<DetailBundle | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isCreatingChat, setIsCreatingChat] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -231,7 +232,7 @@ export default function ProductDetailScreen() {
     };
   }, [id]);
 
-  const openSellerSms = useCallback(() => {
+  const openSellerSms = useCallback(async () => {
     if (Platform.OS === "web") {
       Alert.alert("SMS on device only", "Open this screen on your phone to message the seller.");
       return;
@@ -242,14 +243,50 @@ export default function ProductDetailScreen() {
       Alert.alert("Contact unavailable", "No phone number for this seller yet.");
       return;
     }
+
+    if (/^\d+$/.test(id)) {
+      try {
+        setIsCreatingChat(true);
+        const token = await auth.currentUser?.getIdToken();
+
+        if (!token) {
+          throw new Error("Not signed in.");
+        }
+
+        const response = await POST(
+          `${API_BASE_URL}/products/${encodeURIComponent(id)}/chats`,
+          token,
+        );
+
+        if (!response.ok) {
+          throw new Error(response.error);
+        }
+      } catch (error) {
+        Alert.alert(
+          "Could not start chat",
+          error instanceof Error
+            ? error.message
+            : "Unable to create chat for this product.",
+        );
+        return;
+      } finally {
+        setIsCreatingChat(false);
+      }
+    }
+
     const url = smsUrl(phone, `Hi, I'm interested in: ${title}`);
     void Linking.openURL(url).catch(() =>
       Alert.alert("Error", "Could not open the messaging app."),
     );
-  }, [bundle]);
+  }, [bundle, id]);
 
   const contentProps = bundle
-    ? { ...bundle.content, onChatWithSellerPress: openSellerSms }
+    ? {
+        ...bundle.content,
+        chatButtonLabel: isCreatingChat ? "Starting chat..." : undefined,
+        isChatWithSellerDisabled: isCreatingChat,
+        onChatWithSellerPress: () => void openSellerSms(),
+      }
     : null;
 
   return (

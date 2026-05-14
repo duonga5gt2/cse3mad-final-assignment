@@ -36,10 +36,13 @@ import { defineSecret } from "firebase-functions/params";
 import { onRequest } from "firebase-functions/v2/https";
 
 import {
+  createChat,
   createNewProduct,
   createNewUser,
+  getBuyingChats,
   getCurentUser,
   getProdDetail,
+  getSellingChats,
   getTrendingProducts,
   getTrendingProductsNext10,
   searchForItem,
@@ -242,6 +245,94 @@ app.get(
           error instanceof Error
             ? error.message
             : "Unable to fetch next trending products.",
+      });
+    }
+  },
+);
+
+app.get(
+  "/chats/buying",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const uid = req.user?.uid;
+
+      if (!uid) {
+        res.status(401).json({
+          ok: false,
+          error: "Missing authenticated user.",
+        });
+        return;
+      }
+
+      const connectionString = DATABASE_URL.value();
+
+      if (!connectionString) {
+        res.status(500).json({
+          ok: false,
+          error: "DATABASE_URL is not configured.",
+        });
+        return;
+      }
+
+      const sql = neon(connectionString);
+      const chats = await getBuyingChats(sql, uid);
+
+      res.status(200).json({
+        ok: true,
+        data: chats,
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to fetch buying chats.",
+      });
+    }
+  },
+);
+
+app.get(
+  "/chats/selling",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const uid = req.user?.uid;
+
+      if (!uid) {
+        res.status(401).json({
+          ok: false,
+          error: "Missing authenticated user.",
+        });
+        return;
+      }
+
+      const connectionString = DATABASE_URL.value();
+
+      if (!connectionString) {
+        res.status(500).json({
+          ok: false,
+          error: "DATABASE_URL is not configured.",
+        });
+        return;
+      }
+
+      const sql = neon(connectionString);
+      const chats = await getSellingChats(sql, uid);
+
+      res.status(200).json({
+        ok: true,
+        data: chats,
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to fetch selling chats.",
       });
     }
   },
@@ -521,6 +612,68 @@ app.post(
           error instanceof Error
             ? error.message
             : "Unable to update product trend.",
+      });
+    }
+  },
+);
+
+app.post(
+  "/products/:prodId/chats",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const uid = req.user?.uid;
+      const prodId = Number(req.params.prodId);
+
+      if (!uid) {
+        res.status(401).json({
+          ok: false,
+          error: "Missing authenticated user.",
+        });
+        return;
+      }
+
+      if (!Number.isInteger(prodId)) {
+        res.status(400).json({
+          ok: false,
+          error: "prodId must be a valid integer.",
+        });
+        return;
+      }
+
+      const connectionString = DATABASE_URL.value();
+
+      if (!connectionString) {
+        res.status(500).json({
+          ok: false,
+          error: "DATABASE_URL is not configured.",
+        });
+        return;
+      }
+
+      const sql = neon(connectionString);
+      const chats = await createChat(sql, {
+        prodId,
+        userUid: uid,
+      });
+
+      if (chats.length === 0) {
+        res.status(403).json({
+          ok: false,
+          error: "You cannot chat with yourself.",
+        });
+        return;
+      }
+
+      res.status(201).json({
+        ok: true,
+        data: chats[0],
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error:
+          error instanceof Error ? error.message : "Unable to create chat.",
       });
     }
   },

@@ -1,11 +1,26 @@
 import { MaterialIcons } from "@expo/vector-icons";
-import { useCallback, useMemo, useState } from "react";
-import { Alert, Linking, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ProductCard } from "@/components/ui/product-card";
+import { auth } from "@/firebase";
+import { GET } from "@/lib/fetchFormat";
 
-/** Listing on Chat tab — entry point to native SMS; seller phone from backend later. */
+type ChatMode = "buying" | "selling";
+
 type ChatListing = {
   id: string;
   title: string;
@@ -14,70 +29,62 @@ type ChatListing = {
   avatarUrl: string;
   sellerFirstName: string;
   sellerLastName: string;
-  sellerPhone?: string;
+  contactPhone?: string | null;
 };
 
-const MOCK_LISTINGS: ChatListing[] = [
-  {
-    id: "1",
-    title: "Mid-century Modern Lounge Chair",
-    price: "$4,850",
-    imageUri:
-      "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=400&q=80",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80",
-    sellerFirstName: "Elena",
-    sellerLastName: "Rossi",
-    sellerPhone: "+61400111222",
-  },
-  {
-    id: "2",
-    title: "Nomos Metro Watch",
-    price: "$3,200",
-    imageUri:
-      "https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?auto=format&fit=crop&w=400&q=80",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=200&q=80",
-    sellerFirstName: "Noah",
-    sellerLastName: "Chen",
-    sellerPhone: "+61400333444",
-  },
-  {
-    id: "3",
-    title: "Vintage Camera Lens",
-    price: "$790",
-    imageUri:
-      "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=400&q=80",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=200&q=80",
-    sellerFirstName: "Ava",
-    sellerLastName: "Patel",
-  },
-  {
-    id: "4",
-    title: "Ceramic Table Lamp",
-    price: "$120",
-    imageUri:
-      "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=400&q=80",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80",
-    sellerFirstName: "Mia",
-    sellerLastName: "Walsh",
-    sellerPhone: "+61400555666",
-  },
-  {
-    id: "5",
-    title: "Leather Weekender Bag",
-    price: "$340",
-    imageUri:
-      "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=400&q=80",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80",
-    sellerFirstName: "James",
-    sellerLastName: "Ortiz",
-    sellerPhone: "+61400777888",
-  },
-];
+type ChatApiRow = {
+  prod_id: number;
+  title: string;
+  price: number | string;
+  product_photo_url_1?: string | null;
+  seller_first_name?: string | null;
+  seller_last_name?: string | null;
+  seller_phone_number?: string | null;
+  buyer_first_name?: string | null;
+  buyer_last_name?: string | null;
+  buyer_phone_number?: string | null;
+};
+
+const API_BASE_URL =
+  "https://australia-southeast1-cse3mad-final-assignment.cloudfunctions.net/api";
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=400&q=80";
+const FALLBACK_AVATAR =
+  "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80";
+
+function formatPrice(price: number | string) {
+  const numericPrice = Number(price);
+
+  if (!Number.isFinite(numericPrice)) {
+    return `$${price}`;
+  }
+
+  return new Intl.NumberFormat("en-AU", {
+    currency: "AUD",
+    maximumFractionDigits: 0,
+    style: "currency",
+  }).format(numericPrice);
+}
+
+function mapChat(row: ChatApiRow, mode: ChatMode): ChatListing {
+  const firstName =
+    mode === "buying" ? row.seller_first_name : row.buyer_first_name;
+  const lastName =
+    mode === "buying" ? row.seller_last_name : row.buyer_last_name;
+  const phone =
+    mode === "buying" ? row.seller_phone_number : row.buyer_phone_number;
+
+  return {
+    id: String(row.prod_id),
+    title: row.title,
+    price: formatPrice(row.price),
+    imageUri: row.product_photo_url_1 || FALLBACK_IMAGE,
+    avatarUrl: FALLBACK_AVATAR,
+    sellerFirstName: firstName?.trim() || (mode === "buying" ? "Seller" : "Buyer"),
+    sellerLastName: lastName?.trim() || "",
+    contactPhone: phone?.trim() || null,
+  };
+}
 
 function smsUrl(phone: string, body?: string): string {
   const trimmed = phone.replace(/[^\d+]/g, "");
@@ -90,37 +97,94 @@ function smsUrl(phone: string, body?: string): string {
 }
 
 export default function ChatScreen() {
+  const [activeMode, setActiveMode] = useState<ChatMode>("buying");
   const [searchTerm, setSearchTerm] = useState("");
+  const [listings, setListings] = useState<ChatListing[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [focusRefreshKey, setFocusRefreshKey] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      setFocusRefreshKey((current) => current + 1);
+    }, []),
+  );
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadChats() {
+      try {
+        setIsLoading(true);
+        setLoadError("");
+
+        const token = await auth.currentUser?.getIdToken();
+
+        if (!token) {
+          throw new Error("Missing auth token.");
+        }
+
+        const response = await GET<ChatApiRow[]>(
+          `${API_BASE_URL}/chats/${activeMode}`,
+          token,
+        );
+
+        if (!response.ok) {
+          throw new Error(response.error);
+        }
+
+        if (isActive) {
+          setListings(response.data.map((row) => mapChat(row, activeMode)));
+        }
+      } catch (error) {
+        if (isActive) {
+          setLoadError(
+            error instanceof Error ? error.message : "Unable to load chats.",
+          );
+          setListings([]);
+        }
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadChats();
+
+    return () => {
+      isActive = false;
+    };
+  }, [activeMode, focusRefreshKey]);
 
   const visibleListings = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return MOCK_LISTINGS;
-    return MOCK_LISTINGS.filter(
+    if (!q) return listings;
+    return listings.filter(
       (item) =>
         item.title.toLowerCase().includes(q) ||
-        `${item.sellerFirstName} ${item.sellerLastName}`.toLowerCase().includes(q)
+        `${item.sellerFirstName} ${item.sellerLastName}`
+          .toLowerCase()
+          .includes(q),
     );
-  }, [searchTerm]);
+  }, [listings, searchTerm]);
 
-  const openSellerSms = useCallback(async (listing: ChatListing) => {
+  const openSms = useCallback(async (listing: ChatListing) => {
     if (Platform.OS === "web") {
       Alert.alert(
         "SMS on device only",
-        "Open this screen in Expo Go on your phone to message sellers via SMS."
+        "Open this screen in Expo Go on your phone to message people via SMS.",
       );
       return;
     }
 
-    if (!listing.sellerPhone?.trim()) {
-      Alert.alert(
-        "Contact unavailable",
-        "Seller phone number is not on this listing yet. This will come from your backend later."
-      );
+    if (!listing.contactPhone?.trim()) {
+      Alert.alert("Contact unavailable", "No phone number for this chat yet.");
       return;
     }
 
-    const body = `Hi, I'm interested in: ${listing.title}`;
-    const url = smsUrl(listing.sellerPhone, body);
+    const body = `Hi, I'm messaging about: ${listing.title}`;
+    const url = smsUrl(listing.contactPhone, body);
 
     try {
       await Linking.openURL(url);
@@ -138,8 +202,47 @@ export default function ChatScreen() {
       >
         <Text style={styles.screenTitle}>Messages</Text>
         <Text style={styles.subtitle}>
-          Tap a listing to open SMS with the seller. Chat history stays in your messages app.
+          Tap a listing to open SMS. Chat history stays in your messages app.
         </Text>
+
+        <View style={styles.filterRow}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setActiveMode("buying")}
+            style={({ pressed }) => [
+              styles.filterChip,
+              activeMode === "buying" && styles.filterChipActive,
+              pressed && styles.filterChipPressed,
+            ]}
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                activeMode === "buying" && styles.filterChipTextActive,
+              ]}
+            >
+              Buying
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setActiveMode("selling")}
+            style={({ pressed }) => [
+              styles.filterChip,
+              activeMode === "selling" && styles.filterChipActive,
+              pressed && styles.filterChipPressed,
+            ]}
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                activeMode === "selling" && styles.filterChipTextActive,
+              ]}
+            >
+              Selling
+            </Text>
+          </Pressable>
+        </View>
 
         <View style={styles.searchShell}>
           <MaterialIcons color="#8D95C8" name="search" size={20} />
@@ -155,13 +258,17 @@ export default function ChatScreen() {
         </View>
 
         <View style={styles.listings}>
+          {isLoading ? <ActivityIndicator color="#0057BD" size="large" /> : null}
+
+          {loadError ? <Text style={styles.empty}>{loadError}</Text> : null}
+
           {visibleListings.map((listing) => (
             <ProductCard
               avatarUrl={listing.avatarUrl}
               imageUri={listing.imageUri}
               key={listing.id}
               layout="row"
-              onPress={() => void openSellerSms(listing)}
+              onPress={() => void openSms(listing)}
               price={listing.price}
               sellerFirstName={listing.sellerFirstName}
               sellerLastName={listing.sellerLastName}
@@ -170,8 +277,12 @@ export default function ChatScreen() {
           ))}
         </View>
 
-        {visibleListings.length === 0 ? (
-          <Text style={styles.empty}>No products match your search.</Text>
+        {!isLoading && !loadError && visibleListings.length === 0 ? (
+          <Text style={styles.empty}>
+            {activeMode === "buying"
+              ? "No buying chats yet."
+              : "No selling chats yet."}
+          </Text>
         ) : null}
       </ScrollView>
     </SafeAreaView>
@@ -199,6 +310,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     marginTop: -4,
+  },
+  filterRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  filterChip: {
+    alignItems: "center",
+    backgroundColor: "#E7ECFF",
+    borderColor: "#C9D4FF",
+    borderRadius: 999,
+    borderWidth: 1,
+    minHeight: 38,
+    paddingHorizontal: 16,
+    justifyContent: "center",
+  },
+  filterChipActive: {
+    backgroundColor: "#0057BD",
+    borderColor: "#0057BD",
+  },
+  filterChipPressed: {
+    opacity: 0.86,
+  },
+  filterChipText: {
+    color: "#4A5383",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  filterChipTextActive: {
+    color: "#FFFFFF",
   },
   searchShell: {
     minHeight: 48,
