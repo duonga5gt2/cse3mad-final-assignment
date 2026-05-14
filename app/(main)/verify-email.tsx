@@ -108,7 +108,23 @@ export default function VerifyEmailScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <View style={styles.topBar}>
+        <Pressable
+          accessibilityLabel="Back to profile"
+          accessibilityRole="button"
+          hitSlop={10}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/(main)/(tabs)/profile");
+            }
+          }}
+          style={styles.backButton}
+        >
+          <MaterialIcons color={BRAND} name="arrow-back" size={24} />
+        </Pressable>
         <Text style={styles.brand}>Sydney Exchange</Text>
+        <View style={styles.topBarSpacer} />
       </View>
 
       <ScrollView
@@ -213,14 +229,27 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   topBar: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingTop: 4,
     paddingBottom: 12,
   },
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  topBarSpacer: {
+    width: 44,
+  },
   brand: {
+    flex: 1,
     fontSize: 18,
     fontWeight: "700",
     color: BRAND,
+    textAlign: "center",
   },
   scroll: {
     paddingHorizontal: 20,
