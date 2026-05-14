@@ -1,6 +1,11 @@
 import { Image } from "expo-image";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+export type ProductCardSize = "default" | "compact";
+
+/** `stack` = image on top (Home). `row` = slim horizontal row (e.g. Chat → SMS entry). */
+export type ProductCardLayout = "stack" | "row";
+
 type ProductCardProps = {
   imageUri: string;
   title: string;
@@ -8,6 +13,10 @@ type ProductCardProps = {
   avatarUrl: string;
   sellerFirstName: string;
   sellerLastName: string;
+  onPress?: () => void;
+  /** `default` = home-style taller card; `compact` = shorter stack (ignored when `layout="row"`). */
+  size?: ProductCardSize;
+  layout?: ProductCardLayout;
 };
 
 export function ProductCard({
@@ -17,25 +26,79 @@ export function ProductCard({
   avatarUrl,
   sellerFirstName,
   sellerLastName,
+  onPress,
+  size = "default",
+  layout = "stack",
 }: ProductCardProps) {
+  if (layout === "row") {
+    return (
+      <Pressable
+        accessibilityLabel={`Message seller about ${title}`}
+        accessibilityRole="button"
+        onPress={onPress}
+        style={({ pressed }) => [styles.rowCard, pressed && styles.cardPressed]}
+      >
+        <Image contentFit="cover" source={{ uri: imageUri }} style={styles.rowThumb} />
+        <View style={styles.rowBody}>
+          <Text numberOfLines={1} style={styles.rowTitle}>
+            {title}
+          </Text>
+          <View style={styles.rowSeller}>
+            <Image contentFit="cover" source={{ uri: avatarUrl }} style={styles.rowAvatar} />
+            <Text numberOfLines={1} style={styles.rowSellerName}>
+              {sellerFirstName} {sellerLastName}
+            </Text>
+          </View>
+        </View>
+      </Pressable>
+    );
+  }
+
+  const compact = size === "compact";
+
   return (
     <Pressable
       accessibilityLabel={`Open product ${title}`}
       accessibilityRole="button"
+      onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     >
-      <Image contentFit="cover" source={{ uri: imageUri }} style={styles.image} />
-      <View style={styles.content}>
-        <Text numberOfLines={1} style={styles.title}>
+      <Image
+        contentFit="cover"
+        source={{ uri: imageUri }}
+        style={[styles.image, compact ? styles.imageCompact : styles.imageDefault]}
+      />
+      <View style={compact ? styles.contentCompact : styles.contentDefault}>
+        <Text
+          numberOfLines={1}
+          style={[styles.title, compact ? styles.titleCompact : styles.titleDefault]}
+        >
           {title}
         </Text>
-        <View style={styles.sellerRow}>
-          <Image contentFit="cover" source={{ uri: avatarUrl }} style={styles.avatar} />
-          <Text numberOfLines={1} style={styles.sellerName}>
+        <View
+          style={[
+            styles.sellerRow,
+            compact ? styles.sellerRowCompact : styles.sellerRowDefault,
+          ]}
+        >
+          <Image
+            contentFit="cover"
+            source={{ uri: avatarUrl }}
+            style={[styles.avatar, compact ? styles.avatarCompact : styles.avatarDefault]}
+          />
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.sellerName,
+              compact ? styles.sellerNameCompact : styles.sellerNameDefault,
+            ]}
+          >
             {sellerFirstName} {sellerLastName}
           </Text>
         </View>
-        <Text style={styles.price}>{price}</Text>
+        <Text style={[styles.price, compact ? styles.priceCompact : styles.priceDefault]}>
+          {price}
+        </Text>
       </View>
     </Pressable>
   );
@@ -58,42 +121,132 @@ const styles = StyleSheet.create({
   cardPressed: {
     opacity: 0.96,
   },
-  image: {
-    width: "100%",
-    aspectRatio: 1.1,
+  rowCard: {
+    width: "92%",
+    alignSelf: "center",
+    maxWidth: 380,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 12,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#242C51",
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  rowThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: 12,
     backgroundColor: "#E8ECFF",
   },
-  content: {
+  rowBody: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
+    justifyContent: "center",
+  },
+  rowTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#242C51",
+  },
+  rowSeller: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 1,
+  },
+  rowAvatar: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#DDE4FF",
+  },
+  rowSellerName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#0057BD",
+  },
+  image: {
+    width: "100%",
+    backgroundColor: "#E8ECFF",
+  },
+  imageDefault: {
+    aspectRatio: 1.1,
+  },
+  imageCompact: {
+    aspectRatio: 1.75,
+  },
+  contentDefault: {
     paddingHorizontal: 14,
     paddingVertical: 14,
     gap: 6,
   },
+  contentCompact: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
+  },
   title: {
     color: "#242C51",
-    fontSize: 28,
     fontWeight: "700",
+  },
+  titleDefault: {
+    fontSize: 28,
+  },
+  titleCompact: {
+    fontSize: 20,
   },
   sellerRow: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  sellerRowDefault: {
     gap: 8,
     marginTop: -2,
   },
+  sellerRowCompact: {
+    gap: 6,
+    marginTop: 0,
+  },
   avatar: {
+    backgroundColor: "#DDE4FF",
+  },
+  avatarDefault: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#DDE4FF",
+  },
+  avatarCompact: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
   },
   sellerName: {
     flex: 1,
     color: "#6C759E",
-    fontSize: 14,
     fontWeight: "600",
+  },
+  sellerNameDefault: {
+    fontSize: 14,
+  },
+  sellerNameCompact: {
+    fontSize: 13,
   },
   price: {
     color: "#0057BD",
-    fontSize: 34,
     fontWeight: "800",
+  },
+  priceDefault: {
+    fontSize: 34,
+  },
+  priceCompact: {
+    fontSize: 22,
   },
 });
