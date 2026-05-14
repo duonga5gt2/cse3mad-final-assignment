@@ -1,5 +1,5 @@
 import { MaterialIcons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -275,6 +275,9 @@ export default function AuthenticatedHomeScreen() {
                   imageUri={product.imageUri}
                   key={product.id}
                   layout="row"
+                  onPress={() =>
+                    router.push(`/(main)/product-detail/${encodeURIComponent(product.id)}`)
+                  }
                   price={product.price}
                   sellerFirstName={product.sellerFirstName}
                   sellerLastName={product.sellerLastName}
@@ -302,6 +305,9 @@ export default function AuthenticatedHomeScreen() {
               avatarUrl={product.avatarUrl}
               imageUri={product.imageUri}
               key={product.id}
+              onPress={() =>
+                router.push(`/(main)/product-detail/${encodeURIComponent(product.id)}`)
+              }
               price={product.price}
               sellerFirstName={product.sellerFirstName}
               sellerLastName={product.sellerLastName}

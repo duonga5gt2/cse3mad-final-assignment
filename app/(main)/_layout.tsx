@@ -9,6 +9,7 @@ export default function MainLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="verify-email" options={{ headerShown: false }} />
+      <Stack.Screen name="product-detail/[id]" options={{ headerShown: false }} />
     </Stack>
   );
 

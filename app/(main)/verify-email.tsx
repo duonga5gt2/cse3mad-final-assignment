@@ -32,6 +32,8 @@ export default function VerifyEmailScreen() {
   } = useAuth();
   const [isResending, setIsResending] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
+  /** After first successful send, label switches from "Send link" to "Resend link". */
+  const [verificationEmailSentOnce, setVerificationEmailSentOnce] = useState(false);
 
   const email = user?.email?.trim() ?? "";
 
@@ -55,20 +57,27 @@ export default function VerifyEmailScreen() {
     }
   }, [email]);
 
-  const onResendPress = useCallback(async () => {
+  const onSendOrResendPress = useCallback(async () => {
     try {
       setIsResending(true);
       await sendVerificationEmail();
-      Alert.alert("Email sent", "We sent another verification link. Check your inbox.");
+      const isResend = verificationEmailSentOnce;
+      setVerificationEmailSentOnce(true);
+      Alert.alert(
+        "Email sent",
+        isResend
+          ? "We sent another verification link. Check your inbox."
+          : "We sent a verification link. Check your inbox."
+      );
     } catch (e) {
       Alert.alert(
-        "Could not resend",
+        verificationEmailSentOnce ? "Could not resend" : "Could not send",
         e instanceof Error ? e.message : "Please try again in a moment."
       );
     } finally {
       setIsResending(false);
     }
-  }, [sendVerificationEmail]);
+  }, [sendVerificationEmail, verificationEmailSentOnce]);
 
   const onCheckVerificationPress = useCallback(async () => {
     try {
@@ -140,9 +149,19 @@ export default function VerifyEmailScreen() {
           <Text style={styles.heading}>Check your inbox</Text>
 
           <Text style={styles.body}>
-            We&apos;ve sent a verification link to{" "}
-            <Text style={styles.emailEmphasis}>{email || "your email"}</Text>. Open the link in
-            that message to verify your account.
+            {verificationEmailSentOnce ? (
+              <>
+                We&apos;ve sent a verification link to{" "}
+                <Text style={styles.emailEmphasis}>{email || "your email"}</Text>. Open the link in
+                that message to verify your account.
+              </>
+            ) : (
+              <>
+                Tap <Text style={styles.bodyStrong}>Send link</Text> below and we&apos;ll email a
+                verification link to{" "}
+                <Text style={styles.emailEmphasis}>{email || "your email"}</Text>.
+              </>
+            )}
           </Text>
 
           <Pressable
@@ -178,10 +197,12 @@ export default function VerifyEmailScreen() {
           <Text style={styles.resendPrompt}>Didn&apos;t receive the email?</Text>
 
           <Pressable
-            accessibilityLabel="Resend verification email"
+            accessibilityLabel={
+              verificationEmailSentOnce ? "Resend verification email" : "Send verification email"
+            }
             accessibilityRole="button"
             disabled={isResending}
-            onPress={() => void onResendPress()}
+            onPress={() => void onSendOrResendPress()}
             style={({ pressed }) => [
               styles.secondaryButton,
               (pressed || isResending) && styles.secondaryButtonPressed,
@@ -191,8 +212,14 @@ export default function VerifyEmailScreen() {
               <ActivityIndicator color={BRAND} />
             ) : (
               <>
-                <MaterialIcons color={BRAND} name="refresh" size={20} />
-                <Text style={styles.secondaryButtonText}>Resend link</Text>
+                <MaterialIcons
+                  color={BRAND}
+                  name={verificationEmailSentOnce ? "refresh" : "send"}
+                  size={20}
+                />
+                <Text style={styles.secondaryButtonText}>
+                  {verificationEmailSentOnce ? "Resend link" : "Send link"}
+                </Text>
               </>
             )}
           </Pressable>
@@ -201,7 +228,8 @@ export default function VerifyEmailScreen() {
             <View style={styles.hintBox}>
               <MaterialIcons color={BRAND} name="schedule" size={18} />
               <Text style={styles.hintText}>
-                The link may expire after a short time for security. If it does, use Resend link.
+                The link may expire after a short time for security. If it does, tap Send link or
+                Resend link below.
               </Text>
             </View>
           ) : null}
@@ -294,6 +322,10 @@ const styles = StyleSheet.create({
     color: CARD_TEXT,
     fontWeight: "700",
     textDecorationLine: "underline",
+  },
+  bodyStrong: {
+    fontWeight: "700",
+    color: CARD_TEXT,
   },
   primaryButton: {
     flexDirection: "row",
