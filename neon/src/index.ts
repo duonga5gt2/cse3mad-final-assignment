@@ -42,6 +42,7 @@ import {
   getProdDetail,
   getTrendingProducts,
   getTrendingProductsNext10,
+  searchForItem,
   updateProductDetail,
   updateUserProfile,
 } from "./queries";
@@ -240,6 +241,63 @@ app.get(
           error instanceof Error
             ? error.message
             : "Unable to fetch next trending products.",
+      });
+    }
+  },
+);
+
+app.get(
+  "/search-products",
+  authMiddleware,
+  async (req: Request, res: Response) => {
+    try {
+      const searchText = String(req.query.q ?? "").trim();
+
+      if (searchText.length < 2) {
+        res.status(400).json({
+          ok: false,
+          error: "Search query must be at least 2 characters.",
+        });
+        return;
+      }
+
+      const connectionString = DATABASE_URL.value();
+      const aiKey = AI_KEY.value();
+
+      if (!connectionString) {
+        res.status(500).json({
+          ok: false,
+          error: "DATABASE_URL is not configured.",
+        });
+        return;
+      }
+
+      if (!aiKey) {
+        res.status(500).json({
+          ok: false,
+          error: "AI_KEY is not configured.",
+        });
+        return;
+      }
+
+      const prodVector = await embedTextToVector(searchText, aiKey);
+      const sql = neon(connectionString);
+      const products = await searchForItem(sql, {
+        prodVector,
+        searchText,
+      });
+
+      res.status(200).json({
+        ok: true,
+        data: products,
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to search products.",
       });
     }
   },

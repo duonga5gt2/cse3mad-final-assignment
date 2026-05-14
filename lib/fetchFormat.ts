@@ -35,14 +35,36 @@ function buildHeaders(authToken?: string | null, hasBody = false) {
 
 async function readJsonResponse<T>(response: Response): Promise<ApiResponse<T>> {
   const text = await response.text();
-  const json = text ? JSON.parse(text) : null;
+  let json: {
+    error?: string;
+    message?: string;
+  } | ApiResponse<T> | null = null;
+
+  if (text) {
+    try {
+      json = JSON.parse(text);
+    } catch {
+      return {
+        ok: false,
+        error:
+          text.trim().slice(0, 1) === "<"
+            ? `Request returned HTML instead of JSON. Check that the route exists and is deployed. Status ${response.status}.`
+            : `Response was not valid JSON. Status ${response.status}.`,
+      };
+    }
+  }
 
   if (!response.ok) {
+    const errorPayload = json as {
+      error?: string;
+      message?: string;
+    } | null;
+
     return {
       ok: false,
       error:
-        json?.error ??
-        json?.message ??
+        errorPayload?.error ??
+        errorPayload?.message ??
         `Request failed with status ${response.status}`,
     };
   }

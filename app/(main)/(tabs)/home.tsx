@@ -1,9 +1,19 @@
 import { MaterialIcons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ProductCard } from "@/components/ui/product-card";
+import { auth } from "@/firebase";
+import { GET } from "@/lib/fetchFormat";
 
 type Product = {
   id: string;
@@ -15,49 +25,111 @@ type Product = {
   sellerLastName: string;
 };
 
-const MOCK_PRODUCTS: Product[] = [
-  {
-    id: "1",
-    title: "Eames Lounge Chair",
-    price: "$4,850",
-    imageUri:
-      "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1200&q=80",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80",
-    sellerFirstName: "Emma",
-    sellerLastName: "Rivers",
-  },
-  {
-    id: "2",
-    title: "Nomos Metro Watch",
-    price: "$3,200",
-    imageUri:
-      "https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?auto=format&fit=crop&w=1200&q=80",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=200&q=80",
-    sellerFirstName: "Noah",
-    sellerLastName: "Chen",
-  },
-  {
-    id: "3",
-    title: "Vintage Camera Lens",
-    price: "$790",
-    imageUri:
-      "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&q=80",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=200&q=80",
-    sellerFirstName: "Ava",
-    sellerLastName: "Patel",
-  },
-];
+type ProductApiRow = {
+  prod_id: number;
+  title: string;
+  price: number | string;
+  product_photo_url_1?: string | null;
+  avatar_url?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+};
+
+const API_BASE_URL =
+  "https://australia-southeast1-cse3mad-final-assignment.cloudfunctions.net/api";
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1200&q=80";
+const FALLBACK_AVATAR =
+  "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80";
+
+function formatPrice(price: number | string) {
+  const numericPrice = Number(price);
+
+  if (!Number.isFinite(numericPrice)) {
+    return `$${price}`;
+  }
+
+  return new Intl.NumberFormat("en-AU", {
+    currency: "AUD",
+    maximumFractionDigits: 0,
+    style: "currency",
+  }).format(numericPrice);
+}
+
+function mapProduct(row: ProductApiRow): Product {
+  return {
+    id: String(row.prod_id),
+    title: row.title,
+    price: formatPrice(row.price),
+    imageUri: row.product_photo_url_1 || FALLBACK_IMAGE,
+    avatarUrl: row.avatar_url || FALLBACK_AVATAR,
+    sellerFirstName: row.first_name || "Seller",
+    sellerLastName: row.last_name || "",
+  };
+}
 
 export default function AuthenticatedHomeScreen() {
   const [searchTerm, setSearchTerm] = useState("");
-  const visibleProducts = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-    if (!query) return MOCK_PRODUCTS;
-    return MOCK_PRODUCTS.filter((product) => product.title.toLowerCase().includes(query));
-  }, [searchTerm]);
+  const [visibleProducts, setVisibleProducts] = useState<Product[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [productError, setProductError] = useState("");
+  const [focusRefreshKey, setFocusRefreshKey] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      setFocusRefreshKey((current) => current + 1);
+    }, []),
+  );
+
+  useEffect(() => {
+    let isActive = true;
+    const query = searchTerm.trim();
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        setIsLoadingProducts(true);
+        setProductError("");
+
+        const token = await auth.currentUser?.getIdToken();
+
+        if (!token) {
+          throw new Error("Missing auth token.");
+        }
+
+        const url =
+          query.length >= 2
+            ? `${API_BASE_URL}/search-products?q=${encodeURIComponent(query)}`
+            : `${API_BASE_URL}/trending`;
+        const response = await GET<ProductApiRow[]>(url, token);
+
+        if (!response.ok) {
+          throw new Error(response.error);
+        }
+
+        if (isActive) {
+          setVisibleProducts(response.data.map(mapProduct));
+        }
+      } catch (error) {
+        if (isActive) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Unable to load products.";
+          setProductError(message);
+          setVisibleProducts([]);
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingProducts(false);
+        }
+      }
+    }, query.length >= 2 ? 350 : 0);
+
+    return () => {
+      isActive = false;
+      clearTimeout(timeoutId);
+    };
+  }, [focusRefreshKey, searchTerm]);
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
@@ -79,10 +151,22 @@ export default function AuthenticatedHomeScreen() {
           />
         </View>
 
-        <Text style={styles.sectionEyebrow}>TRENDING</Text>
-        <Text style={styles.sectionTitle}>Trending Products</Text>
+        <Text style={styles.sectionEyebrow}>
+          {searchTerm.trim().length >= 2 ? "SEARCH" : "TRENDING"}
+        </Text>
+        <Text style={styles.sectionTitle}>
+          {searchTerm.trim().length >= 2 ? "Search Results" : "Trending Products"}
+        </Text>
 
         <View style={styles.listingsContainer}>
+          {isLoadingProducts ? (
+            <ActivityIndicator color="#0057BD" size="large" />
+          ) : null}
+
+          {productError ? (
+            <Text style={styles.emptyState}>{productError}</Text>
+          ) : null}
+
           {visibleProducts.map((product) => (
             <ProductCard
               avatarUrl={product.avatarUrl}
@@ -96,9 +180,11 @@ export default function AuthenticatedHomeScreen() {
           ))}
         </View>
 
-        {visibleProducts.length === 0 ? (
+        {!isLoadingProducts && !productError && visibleProducts.length === 0 ? (
           <Text style={styles.emptyState}>
-            No products found. Try a different keyword.
+            {searchTerm.trim().length >= 2
+              ? "No products found. Try a different keyword."
+              : "No trending products yet."}
           </Text>
         ) : null}
       </ScrollView>
