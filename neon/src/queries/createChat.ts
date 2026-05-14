@@ -1,7 +1,6 @@
 import type { SqlClient } from "./types";
 
 export type CreateChatInput = {
-  sellerUid: string;
   prodId: number;
   userUid: string;
 };
@@ -16,12 +15,14 @@ WITH inserted_chat AS (
     user_uid,
     added_at
   )
-  VALUES (
-    $1,
-    $2,
-    $3,
+  SELECT
+    p.seller_uid,
+    p.prod_id,
+    $2::text,
     NOW()
-  )
+  FROM products p
+  WHERE p.prod_id = $1::integer
+    AND p.seller_uid <> $2::text
   ON CONFLICT (seller_uid, prod_id, user_uid)
   DO NOTHING
   RETURNING *
@@ -33,12 +34,12 @@ UNION ALL
 
 SELECT *
 FROM chats
-WHERE seller_uid = $1
-  AND prod_id = $2
-  AND user_uid = $3
+WHERE prod_id = $1::integer
+  AND user_uid = $2::text
+  AND seller_uid <> $2::text
 
 LIMIT 1;
     `,
-    [input.sellerUid, input.prodId, input.userUid],
+    [input.prodId, input.userUid],
   );
 }
