@@ -6,7 +6,7 @@ import {
   AddressAutocompleteSuggestion,
   autocompleteAddress,
   getPlaceLatLng,
-  PlaceLatLng,
+  PlaceLatLng, 
 } from "@/lib/mapFetch";
 import { uploadProductImage } from "@/storage";
 import { MaterialIcons } from "@expo/vector-icons";

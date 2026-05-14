@@ -427,7 +427,10 @@ export default function ProfileScreen() {
             <Pressable
               hitSlop={8}
               onPress={() =>
-                Alert.alert("View all", "Manage listings screen will open here when connected.")
+                router.push({
+                  pathname: "/(main)/manage-list",
+                  params: { tab: "pending" },
+                })
               }
             >
               <Text style={styles.viewAll}>View all →</Text>
@@ -447,9 +450,7 @@ export default function ProfileScreen() {
             <Text style={styles.sectionTitle}>My listings</Text>
             <Pressable
               hitSlop={8}
-              onPress={() =>
-                Alert.alert("View all", "Manage listings screen will open here when connected.")
-              }
+              onPress={() => router.push("/(main)/manage-list")}
             >
               <Text style={styles.viewAll}>View all →</Text>
             </Pressable>
