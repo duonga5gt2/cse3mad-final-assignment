@@ -39,6 +39,10 @@ import {
   createChat,
   createNewProduct,
   createNewUser,
+  deletePendingInterest,
+  deleteProductsAndItsRecord,
+  getAllPendingProd,
+  getAllSellingProd,
   getBuyingChats,
   getCurentUser,
   getProdDetail,
@@ -442,6 +446,223 @@ app.get(
           error instanceof Error
             ? error.message
             : "Unable to fetch product detail.",
+      });
+    }
+  },
+);
+
+app.get(
+  "/me/listings",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const uid = req.user?.uid;
+
+      if (!uid) {
+        res.status(401).json({
+          ok: false,
+          error: "Missing authenticated user.",
+        });
+        return;
+      }
+
+      const connectionString = DATABASE_URL.value();
+
+      if (!connectionString) {
+        res.status(500).json({
+          ok: false,
+          error: "DATABASE_URL is not configured.",
+        });
+        return;
+      }
+
+      const sql = neon(connectionString);
+      const products = await getAllSellingProd(sql, uid);
+
+      res.status(200).json({
+        ok: true,
+        data: products,
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to fetch your listings.",
+      });
+    }
+  },
+);
+
+app.get(
+  "/me/pending",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const uid = req.user?.uid;
+
+      if (!uid) {
+        res.status(401).json({
+          ok: false,
+          error: "Missing authenticated user.",
+        });
+        return;
+      }
+
+      const connectionString = DATABASE_URL.value();
+
+      if (!connectionString) {
+        res.status(500).json({
+          ok: false,
+          error: "DATABASE_URL is not configured.",
+        });
+        return;
+      }
+
+      const sql = neon(connectionString);
+      const products = await getAllPendingProd(sql, uid);
+
+      res.status(200).json({
+        ok: true,
+        data: products,
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to fetch pending products.",
+      });
+    }
+  },
+);
+
+app.delete(
+  "/me/pending/:prodId",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const uid = req.user?.uid;
+      const prodId = Number(req.params.prodId);
+
+      if (!uid) {
+        res.status(401).json({
+          ok: false,
+          error: "Missing authenticated user.",
+        });
+        return;
+      }
+
+      if (!Number.isInteger(prodId)) {
+        res.status(400).json({
+          ok: false,
+          error: "prodId must be a valid integer.",
+        });
+        return;
+      }
+
+      const connectionString = DATABASE_URL.value();
+
+      if (!connectionString) {
+        res.status(500).json({
+          ok: false,
+          error: "DATABASE_URL is not configured.",
+        });
+        return;
+      }
+
+      const sql = neon(connectionString);
+      const deletedRows = await deletePendingInterest(sql, {
+        prodId,
+        userUid: uid,
+      });
+
+      if (deletedRows.length === 0) {
+        res.status(404).json({
+          ok: false,
+          error: "Pending interest not found.",
+        });
+        return;
+      }
+
+      res.status(200).json({
+        ok: true,
+        data: deletedRows[0],
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to remove pending interest.",
+      });
+    }
+  },
+);
+
+app.delete(
+  "/products/:prodId",
+  authMiddleware,
+  emailVerifiedMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const uid = req.user?.uid;
+      const prodId = Number(req.params.prodId);
+
+      if (!uid) {
+        res.status(401).json({
+          ok: false,
+          error: "Missing authenticated user.",
+        });
+        return;
+      }
+
+      if (!Number.isInteger(prodId)) {
+        res.status(400).json({
+          ok: false,
+          error: "prodId must be a valid integer.",
+        });
+        return;
+      }
+
+      const connectionString = DATABASE_URL.value();
+
+      if (!connectionString) {
+        res.status(500).json({
+          ok: false,
+          error: "DATABASE_URL is not configured.",
+        });
+        return;
+      }
+
+      const sql = neon(connectionString);
+      const deletedRows = await deleteProductsAndItsRecord(sql, {
+        prodId,
+        sellerUid: uid,
+      });
+
+      if (deletedRows.length === 0) {
+        res.status(404).json({
+          ok: false,
+          error: "Product not found or you do not have permission to delete it.",
+        });
+        return;
+      }
+
+      res.status(200).json({
+        ok: true,
+        data: deletedRows[0],
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to remove listing.",
       });
     }
   },

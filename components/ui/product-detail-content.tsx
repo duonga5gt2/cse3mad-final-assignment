@@ -2,6 +2,8 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import MapScreen from "@/components/ui/map";
+
 export type ProductDetailContentProps = {
   title: string;
   /** Whole dollars, e.g. "$1,450" or "A$1,450" — no cents. */
@@ -15,6 +17,10 @@ export type ProductDetailContentProps = {
   sellerLastName: string;
   sellerMemberSinceLabel?: string;
   pickupLocationLabel: string;
+  pickupCoordinate?: {
+    latitude: number;
+    longitude: number;
+  };
   chatButtonLabel?: string;
   isChatWithSellerDisabled?: boolean;
   onChatWithSellerPress?: () => void;
@@ -37,6 +43,7 @@ export function ProductDetailContent({
   sellerLastName,
   sellerMemberSinceLabel,
   pickupLocationLabel,
+  pickupCoordinate,
   chatButtonLabel = "Chat with seller",
   isChatWithSellerDisabled = false,
   onChatWithSellerPress,
@@ -82,7 +89,18 @@ export function ProductDetailContent({
 
       <Text style={styles.sectionHeading}>Pickup location</Text>
       <View style={styles.mapShell} accessibilityLabel="Map preview">
-        <MaterialIcons color={BRAND} name="place" size={36} />
+        {pickupCoordinate ? (
+          <View style={styles.mapView}>
+            <MapScreen
+              coordinate={pickupCoordinate}
+              markerTitle={pickupLocationLabel || "Pickup location"}
+            />
+          </View>
+        ) : (
+          <View style={styles.mapFallback}>
+            <MaterialIcons color={BRAND} name="place" size={36} />
+          </View>
+        )}
         {pickupLocationLabel ? (
           <View style={styles.mapLabel}>
             <Text numberOfLines={2} style={styles.mapLabelText}>
@@ -206,6 +224,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+  },
+  mapView: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  mapFallback: {
+    alignItems: "center",
+    height: "100%",
+    justifyContent: "center",
+    width: "100%",
   },
   mapLabel: {
     position: "absolute",

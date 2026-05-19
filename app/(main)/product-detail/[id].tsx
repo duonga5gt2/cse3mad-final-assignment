@@ -110,6 +110,8 @@ type ProductDetailApiRow = {
   seller_last_name?: string | null;
   seller_avatar_url?: string | null;
   seller_phone_number?: string | null;
+  pick_up_latitude?: number | string | null;
+  pick_up_longitude?: number | string | null;
 };
 
 function formatPrice(price: number | string) {
@@ -138,6 +140,12 @@ function mapApiRowToBundle(row: ProductDetailApiRow): DetailBundle {
     "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1200&q=80";
   const left = row.product_photo_url_2?.trim() || main;
   const right = row.product_photo_url_3?.trim() || main;
+  const latitude = Number(row.pick_up_latitude);
+  const longitude = Number(row.pick_up_longitude);
+  const pickupCoordinate =
+    Number.isFinite(latitude) && Number.isFinite(longitude)
+      ? { latitude, longitude }
+      : undefined;
 
   const content: ProductDetailContentProps = {
     title: row.title,
@@ -152,6 +160,7 @@ function mapApiRowToBundle(row: ProductDetailApiRow): DetailBundle {
     sellerFirstName: row.seller_first_name?.trim() || "Seller",
     sellerLastName: row.seller_last_name?.trim() || "",
     pickupLocationLabel: (row.pick_up_location_text ?? "").trim() || "Pickup location TBC",
+    pickupCoordinate,
   };
 
   return {

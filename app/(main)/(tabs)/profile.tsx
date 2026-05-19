@@ -125,8 +125,10 @@ function PreviewRow({ item }: { item: PreviewItem }) {
 }
 
 export default function ProfileScreen() {
-  const { logout, isEmailVerified } = useAuth();
+  const { logout, isEmailVerified, resetPassword } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isSendingPasswordReset, setIsSendingPasswordReset] = useState(false);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [profile, setProfile] = useState<ProfileViewModel | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
@@ -287,11 +289,61 @@ export default function ProfileScreen() {
 
   async function onLogoutPress() {
     try {
+      setIsAccountMenuOpen(false);
       setIsLoggingOut(true);
       await logout();
     } finally {
       setIsLoggingOut(false);
     }
+  }
+
+  async function sendChangePasswordEmail() {
+    setIsAccountMenuOpen(false);
+
+    const email = auth.currentUser?.email ?? profile?.email;
+
+    if (!email || email === "No email") {
+      Alert.alert(
+        "Email unavailable",
+        "Add an email address to your profile before changing your password.",
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Change password",
+      `Send a password reset link to ${email}?`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Send",
+          onPress: () => {
+            void (async () => {
+              try {
+                setIsSendingPasswordReset(true);
+                await resetPassword(email);
+                Alert.alert(
+                  "Email sent",
+                  "Check your inbox for the password reset link.",
+                );
+              } catch (error) {
+                Alert.alert(
+                  "Could not send email",
+                  error instanceof Error
+                    ? error.message
+                    : "Unable to send password reset email.",
+                );
+              } finally {
+                setIsSendingPasswordReset(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
   }
 
   return (
@@ -477,20 +529,64 @@ export default function ProfileScreen() {
           <Text style={styles.verifiedNote}>Your email is verified.</Text>
         )}
 
-        <Pressable
-          accessibilityLabel="Log out"
-          accessibilityRole="button"
-          disabled={isLoggingOut}
-          onPress={onLogoutPress}
-          style={({ pressed }) => [
-            styles.logoutButton,
-            (pressed || isLoggingOut) && styles.logoutButtonPressed,
-          ]}
-        >
-          <Text style={styles.logoutButtonText}>
-            {isLoggingOut ? "Logging out..." : "Log out"}
-          </Text>
-        </Pressable>
+        <View style={styles.accountMenuWrap}>
+          <Pressable
+            accessibilityLabel="Open account actions"
+            accessibilityRole="button"
+            accessibilityState={{ expanded: isAccountMenuOpen }}
+            onPress={() => setIsAccountMenuOpen((current) => !current)}
+            style={({ pressed }) => [
+              styles.accountMenuButton,
+              pressed && styles.accountMenuButtonPressed,
+            ]}
+          >
+            <MaterialIcons color={BRAND} name="settings" size={20} />
+            <Text style={styles.accountMenuButtonText}>Account actions</Text>
+            <MaterialIcons
+              color={BRAND}
+              name={isAccountMenuOpen ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+              size={22}
+            />
+          </Pressable>
+
+          {isAccountMenuOpen ? (
+            <View style={styles.accountDropdown}>
+              <Pressable
+                accessibilityLabel="Change password"
+                accessibilityRole="button"
+                disabled={isSendingPasswordReset}
+                onPress={() => void sendChangePasswordEmail()}
+                style={({ pressed }) => [
+                  styles.accountMenuItem,
+                  pressed && styles.accountMenuItemPressed,
+                ]}
+              >
+                <MaterialIcons color={BRAND} name="lock-reset" size={20} />
+                <Text style={styles.accountMenuItemText}>
+                  {isSendingPasswordReset ? "Sending..." : "Change password"}
+                </Text>
+              </Pressable>
+
+              <View style={styles.accountMenuDivider} />
+
+              <Pressable
+                accessibilityLabel="Log out"
+                accessibilityRole="button"
+                disabled={isLoggingOut}
+                onPress={onLogoutPress}
+                style={({ pressed }) => [
+                  styles.accountMenuItem,
+                  pressed && styles.accountMenuItemPressed,
+                ]}
+              >
+                <MaterialIcons color="#D92D20" name="logout" size={20} />
+                <Text style={styles.accountMenuItemDangerText}>
+                  {isLoggingOut ? "Logging out..." : "Log out"}
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -750,21 +846,66 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
   },
-  logoutButton: {
-    marginTop: 20,
-    minHeight: 48,
+  accountMenuWrap: {
+    marginTop: 16,
+  },
+  accountMenuButton: {
     alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    borderColor: "#B8C4FF",
     borderRadius: 12,
-    backgroundColor: BRAND,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 48,
     paddingHorizontal: 20,
   },
-  logoutButtonPressed: {
+  accountMenuButtonPressed: {
     opacity: 0.86,
   },
-  logoutButtonText: {
-    color: "#FFFFFF",
+  accountMenuButtonText: {
+    flex: 1,
+    color: BRAND,
     fontSize: 16,
     fontWeight: "700",
+    textAlign: "center",
+  },
+  accountDropdown: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#D8DEFF",
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 8,
+    overflow: "hidden",
+    shadowColor: "#242C51",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 3,
+  },
+  accountMenuItem: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    minHeight: 52,
+    paddingHorizontal: 16,
+  },
+  accountMenuItemPressed: {
+    backgroundColor: "#F4F6FF",
+  },
+  accountMenuItemText: {
+    color: CARD_TEXT,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  accountMenuItemDangerText: {
+    color: "#D92D20",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  accountMenuDivider: {
+    height: 1,
+    backgroundColor: "#EEF1FF",
   },
 });

@@ -1,7 +1,8 @@
 import { MaterialIcons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Linking,
   Platform,
@@ -14,11 +15,17 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ProductCard } from "@/components/ui/product-card";
+import { auth } from "@/firebase";
+import { DELETE, GET } from "@/lib/fetchFormat";
 
 const BRAND = "#0057BD";
 const CARD_TEXT = "#242C51";
 const MUTED = "#6C759E";
 const BG = "#F7F5FF";
+const API_BASE_URL =
+  "https://australia-southeast1-cse3mad-final-assignment.cloudfunctions.net/api";
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1200&q=80";
 
 type TabKey = "listings" | "pending";
 
@@ -27,63 +34,49 @@ type ManageRow = {
   title: string;
   price: string;
   imageUri: string;
-  avatarUrl: string;
+  avatarUrl?: string;
   sellerFirstName: string;
   sellerLastName: string;
   sellerPhone?: string;
 };
 
-const MOCK_LISTINGS: ManageRow[] = [
-  {
-    id: "ml-1",
-    title: "Eames Lounge Chair",
-    price: "$4,850",
-    imageUri:
-      "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1200&q=80",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80",
-    sellerFirstName: "You",
-    sellerLastName: "",
-  },
-  {
-    id: "ml-2",
-    title: "Ceramic Table Lamp",
-    price: "$120",
-    imageUri:
-      "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=1200&q=80",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80",
-    sellerFirstName: "You",
-    sellerLastName: "",
-  },
-];
+type ManageApiRow = {
+  prod_id: number;
+  title: string;
+  price: number | string;
+  product_photo_url_1?: string | null;
+  seller_first_name?: string | null;
+  seller_last_name?: string | null;
+  seller_avatar_url?: string | null;
+  seller_phone_number?: string | null;
+};
 
-const MOCK_PENDING: ManageRow[] = [
-  {
-    id: "mp-1",
-    title: "Vintage Camera Lens",
-    price: "$790",
-    imageUri:
-      "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&q=80",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=200&q=80",
-    sellerFirstName: "Ava",
-    sellerLastName: "Patel",
-    sellerPhone: "+61400555666",
-  },
-  {
-    id: "mp-2",
-    title: "Leather Weekender Bag",
-    price: "$340",
-    imageUri:
-      "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=1200&q=80",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80",
-    sellerFirstName: "James",
-    sellerLastName: "Ortiz",
-    sellerPhone: "+61400777888",
-  },
-];
+function formatPrice(price: number | string) {
+  const numericPrice = Number(price);
+
+  if (!Number.isFinite(numericPrice)) {
+    return `$${price}`;
+  }
+
+  return new Intl.NumberFormat("en-AU", {
+    currency: "AUD",
+    maximumFractionDigits: 0,
+    style: "currency",
+  }).format(numericPrice);
+}
+
+function mapManageRow(row: ManageApiRow, tab: TabKey): ManageRow {
+  return {
+    id: String(row.prod_id),
+    title: row.title,
+    price: formatPrice(row.price),
+    imageUri: row.product_photo_url_1 || FALLBACK_IMAGE,
+    avatarUrl: row.seller_avatar_url?.trim() || undefined,
+    sellerFirstName: row.seller_first_name?.trim() || (tab === "listings" ? "Owner" : "Seller"),
+    sellerLastName: row.seller_last_name?.trim() || "",
+    sellerPhone: row.seller_phone_number?.trim() || undefined,
+  };
+}
 
 function smsUrl(phone: string, body?: string): string {
   const trimmed = phone.replace(/[^\d+]/g, "");
@@ -112,12 +105,76 @@ export default function ManageListScreen() {
   }, [tabParam]);
 
   const [tab, setTab] = useState<TabKey>(initialTab);
+  const [rows, setRows] = useState<ManageRow[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removingListingId, setRemovingListingId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const [focusRefreshKey, setFocusRefreshKey] = useState(0);
 
   useEffect(() => {
     setTab(initialTab);
   }, [initialTab]);
 
-  const rows = tab === "listings" ? MOCK_LISTINGS : MOCK_PENDING;
+  useFocusEffect(
+    useCallback(() => {
+      setFocusRefreshKey((current) => current + 1);
+    }, []),
+  );
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadRows() {
+      try {
+        setIsLoading(true);
+        setLoadError("");
+
+        const token = await auth.currentUser?.getIdToken();
+
+        if (!token) {
+          throw new Error("Missing auth token.");
+        }
+
+        const endpoint = tab === "listings" ? "listings" : "pending";
+        const response = await GET<ManageApiRow[]>(
+          `${API_BASE_URL}/me/${endpoint}`,
+          token,
+        );
+
+        if (!response.ok) {
+          throw new Error(response.error);
+        }
+
+        if (isActive) {
+          setRows(response.data.map((row) => mapManageRow(row, tab)));
+        }
+      } catch (error) {
+        if (isActive) {
+          setLoadError(
+            error instanceof Error
+              ? error.message
+              : "Unable to load products.",
+          );
+          setRows([]);
+        }
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadRows();
+
+    return () => {
+      isActive = false;
+    };
+  }, [focusRefreshKey, tab]);
+
+  const refreshRows = useCallback(() => {
+    setFocusRefreshKey((current) => current + 1);
+  }, []);
 
   const contactSeller = useCallback((item: ManageRow) => {
     if (Platform.OS === "web") {
@@ -136,6 +193,112 @@ export default function ManageListScreen() {
       Alert.alert("Error", "Could not open the messaging app."),
     );
   }, []);
+
+  const removePendingInterest = useCallback((item: ManageRow) => {
+    Alert.alert(
+      "Remove pending item",
+      `Remove "${item.title}" from your pending list?`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              try {
+                setRemovingId(item.id);
+
+                const token = await auth.currentUser?.getIdToken();
+
+                if (!token) {
+                  throw new Error("Missing auth token.");
+                }
+
+                const response = await DELETE(
+                  `${API_BASE_URL}/me/pending/${encodeURIComponent(item.id)}`,
+                  token,
+                );
+
+                if (!response.ok) {
+                  throw new Error(response.error);
+                }
+
+                setRows((currentRows) =>
+                  currentRows.filter((row) => row.id !== item.id),
+                );
+                refreshRows();
+              } catch (error) {
+                Alert.alert(
+                  "Remove failed",
+                  error instanceof Error
+                    ? error.message
+                    : "Unable to remove pending item.",
+                );
+              } finally {
+                setRemovingId(null);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  }, [refreshRows]);
+
+  const removeListing = useCallback((item: ManageRow) => {
+    Alert.alert(
+      "Remove listing",
+      `Permanently remove "${item.title}" from your listings?`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              try {
+                setRemovingListingId(item.id);
+
+                const token = await auth.currentUser?.getIdToken();
+
+                if (!token) {
+                  throw new Error("Missing auth token.");
+                }
+
+                const response = await DELETE(
+                  `${API_BASE_URL}/products/${encodeURIComponent(item.id)}`,
+                  token,
+                );
+
+                if (!response.ok) {
+                  throw new Error(response.error);
+                }
+
+                setRows((currentRows) =>
+                  currentRows.filter((row) => row.id !== item.id),
+                );
+                refreshRows();
+              } catch (error) {
+                Alert.alert(
+                  "Remove failed",
+                  error instanceof Error
+                    ? error.message
+                    : "Unable to remove listing.",
+                );
+              } finally {
+                setRemovingListingId(null);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  }, [refreshRows]);
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safe}>
@@ -187,6 +350,12 @@ export default function ManageListScreen() {
           </Pressable>
         </View>
 
+        {isLoading ? (
+          <ActivityIndicator color={BRAND} size="large" />
+        ) : null}
+
+        {loadError ? <Text style={styles.empty}>{loadError}</Text> : null}
+
         {rows.map((item) => (
           <View key={item.id} style={styles.cardBlock}>
             <ProductCard
@@ -203,9 +372,8 @@ export default function ManageListScreen() {
                 <Pressable
                   accessibilityRole="button"
                   onPress={() =>
-                    Alert.alert(
-                      "Edit listing",
-                      "Hook this to your edit flow (e.g. publish screen with prod id) when ready.",
+                    router.push(
+                      `/(main)/edit-product/${encodeURIComponent(item.id)}`,
                     )
                   }
                   style={({ pressed }) => [styles.primaryAction, pressed && styles.pressed]}
@@ -215,15 +383,15 @@ export default function ManageListScreen() {
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() =>
-                    Alert.alert(
-                      "Remove listing",
-                      "Confirm with your teammate, then call DELETE on the listing API.",
-                    )
-                  }
+                  disabled={removingListingId === item.id}
+                  onPress={() => removeListing(item)}
                   style={({ pressed }) => [styles.secondaryAction, pressed && styles.pressed]}
                 >
-                  <Text style={styles.secondaryActionText}>Remove listing</Text>
+                  <Text style={styles.secondaryActionText}>
+                    {removingListingId === item.id
+                      ? "Removing..."
+                      : "Remove listing"}
+                  </Text>
                 </Pressable>
               </View>
             ) : (
@@ -238,16 +406,14 @@ export default function ManageListScreen() {
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() =>
-                    Alert.alert(
-                      "Not interested",
-                      "Remove this from your pending list when the API is wired.",
-                    )
-                  }
+                  disabled={removingId === item.id}
+                  onPress={() => removePendingInterest(item)}
                   style={({ pressed }) => [styles.secondaryAction, pressed && styles.pressed]}
                 >
                   <Text style={styles.secondaryActionText}>
-                    {"I'm no longer interested"}
+                    {removingId === item.id
+                      ? "Removing..."
+                      : "I'm no longer interested"}
                   </Text>
                 </Pressable>
               </View>
@@ -255,7 +421,7 @@ export default function ManageListScreen() {
           </View>
         ))}
 
-        {rows.length === 0 ? (
+        {!isLoading && !loadError && rows.length === 0 ? (
           <Text style={styles.empty}>Nothing here yet.</Text>
         ) : null}
       </ScrollView>

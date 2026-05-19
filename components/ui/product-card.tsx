@@ -10,7 +10,7 @@ type ProductCardProps = {
   imageUri: string;
   title: string;
   price: string;
-  avatarUrl: string;
+  avatarUrl?: string;
   sellerFirstName: string;
   sellerLastName: string;
   onPress?: () => void;
@@ -18,6 +18,38 @@ type ProductCardProps = {
   size?: ProductCardSize;
   layout?: ProductCardLayout;
 };
+
+function getInitials(firstName: string, lastName: string) {
+  const firstInitial = firstName.trim().charAt(0);
+  const lastInitial = lastName.trim().charAt(0);
+  const initials = `${firstInitial}${lastInitial}`.trim();
+
+  return initials.toUpperCase() || "SE";
+}
+
+function SellerAvatar({
+  avatarUrl,
+  firstName,
+  lastName,
+  style,
+  textStyle,
+}: {
+  avatarUrl?: string;
+  firstName: string;
+  lastName: string;
+  style: object;
+  textStyle: object;
+}) {
+  if (avatarUrl?.trim()) {
+    return <Image contentFit="cover" source={{ uri: avatarUrl }} style={style} />;
+  }
+
+  return (
+    <View style={[style, styles.avatarFallback]}>
+      <Text style={textStyle}>{getInitials(firstName, lastName)}</Text>
+    </View>
+  );
+}
 
 export function ProductCard({
   imageUri,
@@ -47,7 +79,13 @@ export function ProductCard({
             {price}
           </Text>
           <View style={styles.rowSeller}>
-            <Image contentFit="cover" source={{ uri: avatarUrl }} style={styles.rowAvatar} />
+            <SellerAvatar
+              avatarUrl={avatarUrl}
+              firstName={sellerFirstName}
+              lastName={sellerLastName}
+              style={styles.rowAvatar}
+              textStyle={styles.rowAvatarText}
+            />
             <Text numberOfLines={1} style={styles.rowSellerName}>
               {sellerFirstName} {sellerLastName}
             </Text>
@@ -84,10 +122,12 @@ export function ProductCard({
             compact ? styles.sellerRowCompact : styles.sellerRowDefault,
           ]}
         >
-          <Image
-            contentFit="cover"
-            source={{ uri: avatarUrl }}
+          <SellerAvatar
+            avatarUrl={avatarUrl}
+            firstName={sellerFirstName}
+            lastName={sellerLastName}
             style={[styles.avatar, compact ? styles.avatarCompact : styles.avatarDefault]}
+            textStyle={compact ? styles.avatarTextCompact : styles.avatarTextDefault}
           />
           <Text
             numberOfLines={1}
@@ -175,6 +215,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: "#DDE4FF",
   },
+  rowAvatarText: {
+    color: "#0057BD",
+    fontSize: 9,
+    fontWeight: "800",
+  },
   rowSellerName: {
     flex: 1,
     fontSize: 13,
@@ -226,6 +271,10 @@ const styles = StyleSheet.create({
   avatar: {
     backgroundColor: "#DDE4FF",
   },
+  avatarFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
   avatarDefault: {
     width: 28,
     height: 28,
@@ -235,6 +284,16 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
+  },
+  avatarTextDefault: {
+    color: "#0057BD",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  avatarTextCompact: {
+    color: "#0057BD",
+    fontSize: 9,
+    fontWeight: "800",
   },
   sellerName: {
     flex: 1,

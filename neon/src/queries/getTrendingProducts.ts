@@ -5,15 +5,19 @@ export async function getTrendingProducts(sql: SqlClient) {
     `
       WITH prod_and_score AS (
         SELECT
-          pt.prod_id,
-          SUM(pt.clicks) AS trending_score
-        FROM product_trending pt
-        JOIN products p
+          p.prod_id,
+          COALESCE(
+            SUM(pt.clicks) FILTER (
+              WHERE pt.hour_bucket >= NOW() - INTERVAL '24 hours'
+            ),
+            0
+          ) AS trending_score
+        FROM products p
+        LEFT JOIN product_trending pt
           ON pt.prod_id = p.prod_id
-        WHERE pt.hour_bucket >= NOW() - INTERVAL '24 hours'
-          AND p.is_sold = false
-        GROUP BY pt.prod_id
-        ORDER BY trending_score DESC, pt.prod_id ASC
+        WHERE p.is_sold = false
+        GROUP BY p.prod_id
+        ORDER BY trending_score DESC, p.prod_id ASC
         LIMIT 10
       )
       SELECT

@@ -2,6 +2,7 @@ export * from "./createChat";
 export * from "./createNewProduct";
 export * from "./createNewUser";
 export * from "./deleteProductsAndItsRecord";
+export * from "./deletePendingInterest";
 export * from "./deleteUser";
 export * from "./getAllPendingProd";
 export * from "./getAllSellingProd";
