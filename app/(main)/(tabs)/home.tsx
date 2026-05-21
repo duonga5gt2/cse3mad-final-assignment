@@ -251,7 +251,11 @@ export default function AuthenticatedHomeScreen() {
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.heroText}>
           Discover exceptional <Text style={styles.heroAccent}>products</Text>
         </Text>
@@ -289,19 +293,29 @@ export default function AuthenticatedHomeScreen() {
                 <Text style={styles.searchDropdownMessage}>No matches found.</Text>
               ) : null}
 
-              {searchResults.map((product) => (
-                <ProductCard
-                  avatarUrl={product.avatarUrl}
-                  imageUri={product.imageUri}
-                  key={product.id}
-                  layout="row"
-                  onPress={() => void openProduct(product.id)}
-                  price={product.price}
-                  sellerFirstName={product.sellerFirstName}
-                  sellerLastName={product.sellerLastName}
-                  title={product.title}
-                />
-              ))}
+              {searchResults.length > 0 ? (
+                <ScrollView
+                  keyboardShouldPersistTaps="handled"
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator
+                  style={styles.searchResultsScroll}
+                  contentContainerStyle={styles.searchResultsContent}
+                >
+                  {searchResults.map((product) => (
+                    <ProductCard
+                      avatarUrl={product.avatarUrl}
+                      imageUri={product.imageUri}
+                      key={product.id}
+                      layout="row"
+                      onPress={() => void openProduct(product.id)}
+                      price={product.price}
+                      sellerFirstName={product.sellerFirstName}
+                      sellerLastName={product.sellerLastName}
+                      title={product.title}
+                    />
+                  ))}
+                </ScrollView>
+              ) : null}
             </View>
           ) : null}
         </View>
@@ -389,7 +403,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 8,
     marginTop: 8,
-    maxHeight: 280,
+    maxHeight: 320,
     overflow: "hidden",
     paddingVertical: 10,
     shadowColor: "#242C51",
@@ -417,6 +431,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     textAlign: "center",
+  },
+  searchResultsScroll: {
+    maxHeight: 240,
+  },
+  searchResultsContent: {
+    gap: 8,
+    paddingBottom: 2,
   },
   sectionEyebrow: {
     marginTop: 6,
