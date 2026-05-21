@@ -46,6 +46,7 @@ describe("autocompleteAddress", () => {
         body: JSON.stringify({
           input: "central",
           includedRegionCodes: ["au"],
+          languageCode: "en",
           locationRestriction: {
             rectangle: {
               low: {
@@ -58,6 +59,7 @@ describe("autocompleteAddress", () => {
               },
             },
           },
+          regionCode: "AU",
         }),
       }),
     );

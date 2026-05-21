@@ -1,4 +1,6 @@
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_MAP_KEY;
+const GOOGLE_LANGUAGE_CODE = "en";
+const GOOGLE_REGION_CODE = "AU";
 
 const SYDNEY_LOCATION_RESTRICTION = {
   rectangle: {
@@ -45,7 +47,9 @@ export async function autocompleteAddress(input: string) {
       body: JSON.stringify({
         input: input,
         includedRegionCodes: ["au"],
+        languageCode: GOOGLE_LANGUAGE_CODE,
         locationRestriction: SYDNEY_LOCATION_RESTRICTION,
+        regionCode: GOOGLE_REGION_CODE,
       }),
     },
   );
@@ -80,8 +84,13 @@ export async function getPlaceLatLng(placeId: string): Promise<PlaceLatLng> {
     ? placeId
     : `places/${placeId}`;
 
+  const params = new URLSearchParams({
+    languageCode: GOOGLE_LANGUAGE_CODE,
+    regionCode: GOOGLE_REGION_CODE,
+  });
+
   const response = await fetch(
-    `https://places.googleapis.com/v1/${placeResource}`,
+    `https://places.googleapis.com/v1/${placeResource}?${params.toString()}`,
     {
       method: "GET",
       headers: {
