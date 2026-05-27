@@ -59,7 +59,7 @@ function fillSignupForm(
 }
 
 describe("SignupScreen", () => {
-  let alertSpy: ReturnType<typeof jest.spyOn<typeof Alert, "alert">>;
+  let alertSpy: jest.SpiedFunction<typeof Alert.alert>;
 
   beforeEach(() => {
     mockSignup.mockReset();

@@ -109,7 +109,7 @@ const MOCK_SUGGESTION = {
 };
 
 describe("Publish listing (integration)", () => {
-  let alertSpy: ReturnType<typeof jest.spyOn<typeof Alert, "alert">>;
+  let alertSpy: jest.SpiedFunction<typeof Alert.alert>;
 
   beforeEach(() => {
     jest.useFakeTimers();
